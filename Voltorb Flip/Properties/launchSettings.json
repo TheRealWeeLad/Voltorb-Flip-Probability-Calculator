@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Voltorb Flip (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Voltorb Flip (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
