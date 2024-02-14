@@ -92,6 +92,7 @@ namespace Voltorb_Flip
             }
         }
 
+        // UI Thread
         void Calibrate(object sender, RoutedEventArgs e)
         {
             // Disable button until calibration is done
@@ -104,6 +105,7 @@ namespace Voltorb_Flip
             Task.Factory.StartNew(calculator.Calibrate);
         }
 
+        // Background Thread
         public void EndCalibration()
         {
             // Cancel Text Animation
@@ -116,6 +118,7 @@ namespace Voltorb_Flip
             });
         }
 
+        // Background Thread
         void CalibrateText(TaskCanceler Canceler)
         {
             string dots = "";
