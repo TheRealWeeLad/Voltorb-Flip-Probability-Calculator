@@ -8,17 +8,22 @@ using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.Threading;
+using System.Drawing;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Devices.PointOfService.Provider;
-using Windows.Foundation;
 using Windows.UI.Core;
 using Windows.Foundation.Collections;
 using System.Threading.Tasks;
-using Voltorb_Flip.Calculator;
 using Windows.ApplicationModel.Core;
+using Windows.Graphics.Capture;
+using Windows.Devices.Enumeration;
+using Windows.Devices.Display;
+
+using Voltorb_Flip.Calculator;
+using System.Drawing.Imaging;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -34,6 +39,8 @@ namespace Voltorb_Flip
         const int CARD_SIZE = 88;
 
         readonly ProbabilityCalculator calculator;
+
+        bool calibrated = false;
 
         class TaskCanceler
         {
@@ -76,7 +83,7 @@ namespace Voltorb_Flip
                     }
 
                     Canvas canvas = new();
-                    Image hiddenCardImg = new()
+                    Microsoft.UI.Xaml.Controls.Image hiddenCardImg = new()
                     {
                         Margin = new Thickness(CARD_SIZE / 2, 0, 0, CARD_SIZE / 2),
                         Width = CARD_SIZE,
@@ -90,6 +97,13 @@ namespace Voltorb_Flip
                     row.Children.Add(canvas);
                 }
             }
+
+            // Disable Calibrate Button if Screen Capture not supported
+            if (!GraphicsCaptureSession.IsSupported())
+            {
+                CalibrateButton.IsEnabled = false;
+                CalibrateButton.Content = "Screen Capture Not Supported";
+            }
         }
 
         // UI Thread
@@ -102,7 +116,47 @@ namespace Voltorb_Flip
             AnimateCanceler.Reset();
             Task.Factory.StartNew(() => { CalibrateText(AnimateCanceler); } );
 
-            Task.Factory.StartNew(calculator.Calibrate);
+            Task.Factory.StartNew(CalibrationLoop);
+        }
+
+        // Background Thread
+        async Task CalibrationLoop()
+        {
+            uint time = 0;
+            while (!calibrated)
+            {
+                //DispatcherQueue?.TryEnqueue(() => DebugLog(time));
+                // Run Screen Capture on UI Thread
+                Bitmap screenBitmap = await CaptureScreen();
+
+                // Check screen capture to determine whether game is open
+                calibrated = calculator.CheckForGameOpen(screenBitmap);
+
+                Thread.Sleep(100); // Only capture screen every 0.1 seconds for performace
+                time += 100;
+                if (time > 5000) break; // Give up after 5 seconds
+            }
+
+            EndCalibration();
+        }
+
+        // Background Thread
+        async Task<Bitmap> CaptureScreen()
+        {
+            // Find info about main monitor
+            DeviceInformationCollection displayList = await DeviceInformation
+                .FindAllAsync(DisplayMonitor.GetDeviceSelector());
+            DisplayMonitor monitorInfo = await DisplayMonitor.FromInterfaceIdAsync(displayList[0].Id);
+            // Get Height and Width of Monitor
+            int screenHeight = monitorInfo.NativeResolutionInRawPixels.Height;
+            int screenWidth = monitorInfo.NativeResolutionInRawPixels.Width;
+
+            // Copy Bitmap From Screen using System.Drawing.Graphics
+            Bitmap bitmap = new(screenWidth, screenHeight);
+            using Graphics graphics = Graphics.FromImage(bitmap);
+            graphics.CopyFromScreen(Point.Empty, Point.Empty, bitmap.Size, CopyPixelOperation.SourceCopy);
+
+            return bitmap;
         }
 
         // Background Thread
@@ -127,10 +181,16 @@ namespace Voltorb_Flip
                 int numDots = (dots.Length + 1) % 4;
                 dots = "";
                 for (int i = 0; i < numDots; i++) dots += ".";
-                DispatcherQueue.TryEnqueue(() => { CalibrateButton.Content = "Calibrating" + dots; });
+                DispatcherQueue?.TryEnqueue(() => { CalibrateButton.Content = "Calibrating" + dots; });
 
                 Thread.Sleep(200);
             }
+        }
+
+        // DEBUG
+        public void DebugLog(object msg)
+        {
+            DebugText.Text = msg.ToString();
         }
     }
 }

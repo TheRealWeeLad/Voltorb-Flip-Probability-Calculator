@@ -36,11 +36,14 @@
         <Grid x:Name="ButtonRow" Grid.Row="7" ColumnDefinitions="*,*,*">
             <Button
                 x:Name="CalibrateButton" Content="Calibrate"
-                Click="Calibrate"
+                Click="Calibrate" Grid.Column="0"
                 Margin="100,20,0,20" Width="200"
                 HorizontalAlignment="Center"
                 Foreground="Yellow" BorderThickness="5"
                 FontSize="22"/>
+            <TextBlock 
+                x:Name="DebugText" Grid.Column="1"
+                HorizontalAlignment="Center" FontSize="30">DEBUG</TextBlock>
         </Grid>
     </Grid>
 </Window>
