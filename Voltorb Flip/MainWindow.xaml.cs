@@ -37,10 +37,9 @@ namespace Voltorb_Flip
     {
         // Constants
         const int CARD_SIZE = 88;
+        readonly Uri HIDDEN_URI = new("ms-appx:///Assets/card-hidden.png");
 
         readonly ProbabilityCalculator calculator;
-
-        bool calibrated = false;
 
         class TaskCanceler
         {
@@ -61,11 +60,28 @@ namespace Voltorb_Flip
             // Initialize Calculator
             calculator = new(this);
 
-            // Initialize Empty Board with 5 rows and 5 columns
+            // Initialize an Empty 5x5 Board
+            UpdateBoard();
+
+            // Disable Calibrate Button if Screen Capture not supported
+            if (!GraphicsCaptureSession.IsSupported())
+            {
+                CalibrateButton.IsEnabled = false;
+                CalibrateButton.Content = "Screen Capture Not Supported";
+            }
+        }
+
+        public void UpdateBoard()
+        {
+            ushort[][] board = calculator.GameBoard;
+
+            // Initialize Board with 5 rows and 5 columns
             for (int r = 1; r <= 6; r++)
             {
                 // Find Correct Row Element
                 Grid row = GridObj.FindName("Row" + r) as Grid ?? throw new Exception(string.Format("Row{0} not found", r));
+                // Reset children if there are any
+                if (row.Children.Count > 0) row.Children.Clear();
 
                 for (int c = 0; c <= 5; c++)
                 {
@@ -74,7 +90,11 @@ namespace Voltorb_Flip
                     // Fill 5x5 square with unflipped cards
                     // Fill last row and column with voltorb indicators
                     Uri sourceUri;
-                    if (c < 5 && r < 6) sourceUri = new Uri("ms-appx:///Assets/card-hidden.png");
+                    if (c < 5 && r < 6)
+                    {
+                        if (board[r - 1][c] == 0) sourceUri = HIDDEN_URI;
+                        else sourceUri = new(string.Format("ms-appx:///Assets/flipped-{0}-highres", board[r - 1][c]));
+                    } 
                     else
                     {
                         // Index voltorb images by the row/column
@@ -97,13 +117,6 @@ namespace Voltorb_Flip
                     row.Children.Add(canvas);
                 }
             }
-
-            // Disable Calibrate Button if Screen Capture not supported
-            if (!GraphicsCaptureSession.IsSupported())
-            {
-                CalibrateButton.IsEnabled = false;
-                CalibrateButton.Content = "Screen Capture Not Supported";
-            }
         }
 
         // UI Thread
@@ -114,27 +127,33 @@ namespace Voltorb_Flip
 
             // Animate Text Box while Calibrating
             AnimateCanceler.Reset();
-            Task.Factory.StartNew(() => { CalibrateText(AnimateCanceler); } );
+            Task.Run(() => { CalibrateText(AnimateCanceler); } );
 
-            Task.Factory.StartNew(CalibrationLoop);
+            Task.Run(CalibrationLoop);
         }
 
         // Background Thread
         async Task CalibrationLoop()
         {
             uint time = 0;
-            while (!calibrated)
+            Task<bool> checkingTask = null;
+            bool taskCompleted = false;
+            bool found = false;
+            while (time < 10000 && !taskCompleted && !found) // Give up after 10 seconds
             {
-                //DispatcherQueue?.TryEnqueue(() => DebugLog(time));
-                // Run Screen Capture on UI Thread
-                Bitmap screenBitmap = await CaptureScreen();
+                if (checkingTask == null || checkingTask.IsCompleted)
+                {
+                    // Run Screen Capture on UI Thread
+                    Bitmap screenBitmap = await CaptureScreen();
 
-                // Check screen capture to determine whether game is open
-                calibrated = calculator.CheckForGameOpen(screenBitmap);
+                    // Check screen capture to determine whether game is open
+                    checkingTask = Task.Run(() => calculator.CheckForGameOpen(screenBitmap));
+                }
 
-                Thread.Sleep(100); // Only capture screen every 0.1 seconds for performace
-                time += 100;
-                if (time > 5000) break; // Give up after 5 seconds
+                taskCompleted = checkingTask.IsCompleted;
+                found = checkingTask.Result;
+                Thread.Sleep(500); // Only try to capture screen every 0.5 seconds for performace
+                time += 500;
             }
 
             EndCalibration();
