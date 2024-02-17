@@ -23,5 +23,11 @@ namespace Voltorb_Flip.Calculator
         readonly Bitmap flippedTwo = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\flipped-2.png") as Bitmap;
         readonly Bitmap flippedThree = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\flipped-3.png") as Bitmap;
         readonly Bitmap cardHidden = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\card-hidden-lowres.png") as Bitmap;
+
+        // Reference Quantities
+        readonly int topLeftSelectedWidth;
+        readonly int topLeftSelectedHeight;
+        readonly int topLeftUnselectedWidth;
+        readonly int topleftUnselectedHeight;
     }
 }

@@ -93,7 +93,7 @@ namespace Voltorb_Flip
                     if (c < 5 && r < 6)
                     {
                         if (board[r - 1][c] == 0) sourceUri = HIDDEN_URI;
-                        else sourceUri = new(string.Format("ms-appx:///Assets/flipped-{0}-highres", board[r - 1][c]));
+                        else sourceUri = new(string.Format("ms-appx:///Assets/flipped-{0}-highres.png", board[r - 1][c]));
                     } 
                     else
                     {
@@ -139,9 +139,10 @@ namespace Voltorb_Flip
             Task<bool> checkingTask = null;
             bool taskCompleted = false;
             bool found = false;
-            while (time < 10000 && !taskCompleted && !found) // Give up after 10 seconds
+            // Give up after 10 seconds or when game is found
+            while ((time < 10000 || !taskCompleted) && !found)
             {
-                if (checkingTask == null || checkingTask.IsCompleted)
+                if (checkingTask == null || taskCompleted)
                 {
                     // Run Screen Capture on UI Thread
                     Bitmap screenBitmap = await CaptureScreen();
@@ -151,7 +152,7 @@ namespace Voltorb_Flip
                 }
 
                 taskCompleted = checkingTask.IsCompleted;
-                found = checkingTask.Result;
+                if (taskCompleted) found = checkingTask.Result;
                 Thread.Sleep(500); // Only try to capture screen every 0.5 seconds for performace
                 time += 500;
             }
@@ -210,6 +211,10 @@ namespace Voltorb_Flip
         public void DebugLog(object msg)
         {
             DebugText.Text = msg.ToString();
+        }
+        public void DebugImage(BitmapImage image)
+        {
+            DebugImg.Source = image;
         }
     }
 }
