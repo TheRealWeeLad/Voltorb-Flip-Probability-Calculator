@@ -27,7 +27,8 @@ namespace Voltorb_Flip.Calculator
         // Reference Quantities
         readonly int topLeftSelectedWidth;
         readonly int topLeftSelectedHeight;
-        readonly int topLeftUnselectedWidth;
-        readonly int topleftUnselectedHeight;
+        readonly Color topLeftSurroundingColor;
+        readonly Color topLeftSelectedBorderColor;
+        readonly Color topLeftUnselectedBorderColor;
     }
 }

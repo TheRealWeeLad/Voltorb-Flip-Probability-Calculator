@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.VisualStudio.TestTools.UITesting;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.ComponentModel.Design;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -19,12 +20,12 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Windows.AI.MachineLearning;
+using Windows.ApplicationModel.LockScreen;
+using Windows.ApplicationModel.VoiceCommands;
 using Windows.Devices.Display;
 using Windows.Devices.Enumeration;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX.Direct3D11;
-using Windows.UI.Core;
-using WinRT.Interop;
 
 namespace Voltorb_Flip.Calculator
 {
@@ -32,14 +33,18 @@ namespace Voltorb_Flip.Calculator
     {
         readonly MainWindow window;
 
-        readonly ColorDifference tolerance = new(15, 15, 15, 15);
+        const byte COLOR_TOLERANCE = 30;
+        const byte BRIGHTNESS_TOLERANCE = 20;
+        readonly ColorDifference tolerance = new(COLOR_TOLERANCE, COLOR_TOLERANCE, COLOR_TOLERANCE, COLOR_TOLERANCE);
         const int SIZE_TOLERANCE = 2;
-        double imageScale = 1;
+        const int STRICT_SIZE_TOLERANCE = 1;
         const double IMAGE_MARGIN_FRACTION = (double)3 / 28;
+        const int MAX_SURROUNDING_DISTANCE = 30;
 
         PixelFormat screenPixelFormat;
         int screenWidth;
         int screenHeight;
+        double imageScale = 1;
 
         public ProbabilityCalculator(MainWindow window)
         {
@@ -54,8 +59,9 @@ namespace Voltorb_Flip.Calculator
             // Initialize Reference Quantities
             topLeftSelectedHeight = topLeftSelected.Height;
             topLeftSelectedWidth = topLeftSelected.Width;
-            topleftUnselectedHeight = topLeftUnselected.Height;
-            topLeftUnselectedWidth = topLeftUnselected.Width;
+            topLeftSurroundingColor = topLeftSelected.GetPixel(0, 0);
+            topLeftSelectedBorderColor = topLeftSelected.GetPixel(1, 0);
+            topLeftUnselectedBorderColor = topLeftUnselected.GetPixel(1, 0);
 
             // Initialize all cards as hidden
             for (int i = 0; i < 5; i++)
@@ -106,7 +112,7 @@ namespace Voltorb_Flip.Calculator
                         // Scan the board and update our virtual board
                         ScanBoard(screenBitmap, j, i);
 
-                        DebugLog("Done: Found!");
+                        //DebugLog("Done: Found!");
                         return true;
                     }
                 }
@@ -115,7 +121,6 @@ namespace Voltorb_Flip.Calculator
             return false;
         }
 
-        // TODO: Switch to screen.LockBits()
         bool VerifySurroundings(Bitmap screen, int startX, int startY)
         {
             // Just check a few more pixels around the top-left corner
@@ -124,27 +129,46 @@ namespace Voltorb_Flip.Calculator
             //       WHITE/RED
             // Corner should look like this ^
             // Only works if there is space around corner
-            if (startX == 0 || startX >= screenWidth - 30
-                || startY == 0 || startY >= screenHeight - 30) return false; // Impossible
+            if (startX == 0 || startX >= screenWidth - MAX_SURROUNDING_DISTANCE
+                || startY == 0 || startY >= screenHeight - MAX_SURROUNDING_DISTANCE) return false;
 
-            // Check 30 pixels to the right and down to find correct colors
-            for (int i = 1; i <= 30; i++)
+            // Get rgb values of screen pixels
+            int dim = MAX_SURROUNDING_DISTANCE + 1;
+            Rectangle cornerBounds = new(startX - 1, startY - 1, dim, dim);
+            using Bitmap corner = screen.Clone(cornerBounds, screen.PixelFormat);
+            byte[] rgbValues = corner.GetBGRAValues();
+
+            // Check pixels to the right and down to find correct colors
+            for (int i = 1; i < MAX_SURROUNDING_DISTANCE; i++)
             {
                 bool right = false, bottom = false;
+                int rightIdx = 4 * (i + dim);
+                int bottomIdx = 4 * (i * dim + 1);
+                int upIdx = 4 * (i + 1);
+                int leftIdx = 4 * i * dim;
 
-                // Check to the right
-                if (screen.GetPixel(startX + i, startY).Similar(topLeftSelected.GetPixel(1, 0), tolerance) ||
-                screen.GetPixel(startX + i, startY).Similar(topLeftUnselected.GetPixel(1, 0), tolerance))
+                // Check to the right (order in rgb array is BGRA)
+                Color rightColor = Color.FromArgb(rgbValues[rightIdx + 3], rgbValues[rightIdx + 2],
+                    rgbValues[rightIdx + 1], rgbValues[rightIdx]);
+                if (rightColor.Similar(topLeftSelectedBorderColor, tolerance) ||
+                    rightColor.Similar(topLeftUnselectedBorderColor, tolerance))
                     right = true;
                 // Check above right
-                if (!screen.GetPixel(startX + i - 1, startY - 1).Similar(topLeftSelected.GetPixel(0, 0), tolerance))
+                Color upColor = Color.FromArgb(rgbValues[upIdx + 3], rgbValues[upIdx + 2],
+                    rgbValues[upIdx + 1], rgbValues[upIdx]);
+                if (!upColor.Similar(topLeftSurroundingColor, tolerance))
                     return false; // All top pixels are the same, so don't waste time
+
                 // Check down
-                if (screen.GetPixel(startX, startY + i).Similar(topLeftSelected.GetPixel(0, 1), tolerance) ||
-                screen.GetPixel(startX, startY + i).Similar(topLeftUnselected.GetPixel(0, 1), tolerance))
+                Color downColor = Color.FromArgb(rgbValues[bottomIdx + 3], rgbValues[bottomIdx + 2],
+                    rgbValues[bottomIdx + 1], rgbValues[bottomIdx]);
+                if (downColor.Similar(topLeftSelectedBorderColor, tolerance) ||
+                    downColor.Similar(topLeftUnselectedBorderColor, tolerance))
                     bottom = true;
                 // Check left of down
-                if (!screen.GetPixel(startX - 1, startY + i - 1).Similar(topLeftSelected.GetPixel(0, 0), tolerance))
+                Color leftColor = Color.FromArgb(rgbValues[leftIdx + 3], rgbValues[leftIdx + 2],
+                    rgbValues[leftIdx + 1], rgbValues[leftIdx]);
+                if (!leftColor.Similar(topLeftSurroundingColor, tolerance))
                     return false; // All left pixels are also the same, so don't waste time
 
                 if (bottom && right) return true;
@@ -163,17 +187,20 @@ namespace Voltorb_Flip.Calculator
                 using Bitmap top = screen.Clone(bounds, screenPixelFormat);
                 // Resize to reference size
                 double scale = (double)i / topLeftSelectedWidth;
-                Bitmap resizedTop = top.ResizeWidth(1.0 / scale); // Invert Scale b/c its backwards
+                using Bitmap resizedTop = top.ResizeWidth(1.0 / scale); // Invert Scale b/c its backwards
                 Size size = resizedTop.Size;
                 try
                 {
                     // Compare to Reference Top Rows
                     bool selected = ImageComparer.Compare(resizedTop, topRowSelected, tolerance, out Image diffSelected);
                     bool unselected = ImageComparer.Compare(resizedTop, topRowUnselected, tolerance, out Image diffUnselected);
-                    // No tolerance for top row, must be exact
+                    // Analyze Difference Images to determine whether they are within tolerance
+                    bool withinTolerance = VerifyToleranceRow((Bitmap)diffSelected) ||
+                        VerifyToleranceRow((Bitmap)diffUnselected);
                     try
                     {
-                        if (selected || unselected)
+                        if (!withinTolerance) DebugLog("Tolerance Row Failed:\n" + startX + ", " + startY);
+                        if (selected || unselected || withinTolerance)
                         {
                             // Set Image Scale based on width of screen image
                             imageScale = scale;
@@ -200,6 +227,9 @@ namespace Voltorb_Flip.Calculator
             int width = (int)(topLeftSelectedWidth * imageScale + 0.5);
             int height = (int)(topLeftSelectedHeight * imageScale + 0.5);
 
+            // Check to see if whole board is on screen
+            if (width * 6 > screenWidth || height * 6 > screenHeight) return false;
+
             // Take corner area
             Rectangle bounds = new(startX, startY, width, height);
             using Bitmap corner = screen.Clone(bounds, screen.PixelFormat);
@@ -213,41 +243,35 @@ namespace Voltorb_Flip.Calculator
             bool unselected = ImageComparer.Compare(resizedCorner, topLeftUnselected,
                 tolerance, out Image diffUnselected);
             // Analyze Difference Images to determine whether they are within tolerance
-            bool withinTolerance = VerifyTolerance((Bitmap)diffSelected) ||
-                VerifyTolerance((Bitmap)diffUnselected);
+            bool withinTolerance = VerifyTolerance((Bitmap)diffSelected, false) ||
+                VerifyTolerance((Bitmap)diffUnselected, false);
             try
             {
+                if (!withinTolerance) DebugLog("Tolerance Failed:\n" + startX + ", " + startY);
                 return selected || unselected || withinTolerance;
             }
             finally
             {
                 diffSelected.Dispose();
-                //diffUnselected.Dispose();
+                diffUnselected.Dispose();
             }
         }
 
-        bool VerifyTolerance(Bitmap diff)
+        bool VerifyTolerance(Bitmap diff, bool strict)
         {
+            // Activate strict size tolerance if needed
+            int sizeTolerance = SIZE_TOLERANCE;
+            if (strict) sizeTolerance = STRICT_SIZE_TOLERANCE;
+
             int width = diff.Width;
             int height = diff.Height;
-            // Get data object
-            BitmapData diffData = diff.LockBits(new Rectangle(0, 0, width, height),
-                ImageLockMode.ReadOnly, diff.PixelFormat);
-
-            // Address of first pixel in memory
-            IntPtr scan0 = diffData.Scan0;
-            // Make new array of rgb values
-            int bytes = Math.Abs(diffData.Stride) * height;
-            byte[] rgbValues = new byte[bytes];
-            // Copy Colors from diffData into rgbValues
-            Marshal.Copy(scan0, rgbValues, 0, bytes);
+            // Get rgb values of diff image
+            byte[] rgbValues = diff.GetBGRAValues();
 
             bool[][] significantPixels = new bool[height][];
-            // Look at every pixel to determine where inconsistensies are
             // Find islands of non-tolerated pixels and determine their width/height
             int islandHeight = 0;
-            bool tooWide = false;
-            bool tooHigh = false;
+            // Look at every pixel to determine where inconsistensies are
             for (int y = 0; y < height; y++)
             {
                 significantPixels[y] = new bool[width];
@@ -255,22 +279,21 @@ namespace Voltorb_Flip.Calculator
                 int islandWidth = 0;
                 for (int x = 0; x < width; x++)
                 {
-                    // Blue index is followed by green, red, then alpha
-                    int blueIdx = 4 * (y * width + x);
-
-                    if (rgbValues[blueIdx] > tolerance.Blue || rgbValues[blueIdx + 1] > tolerance.Green
-                        || rgbValues[blueIdx + 2] > tolerance.Red)
+                    if (!IsTolerated(rgbValues, y, x, width))
                     {
-                        DebugLog("X: " + x + "  Y: " + y + "  B: " + rgbValues[blueIdx] + "\nG: " + rgbValues[blueIdx + 1] +
-                            "\nR: " + rgbValues[blueIdx + 2]);
+                        /*DebugLog("X: " + x + "  Y: " + y + "  B: " + rgbValues[blueIdx] + "\nG: " + rgbValues[blueIdx + 1] +
+                            "\nR: " + rgbValues[blueIdx + 2]);*/
+
                         significantPixels[y][x] = true;
                         // Make sure there is a pixel to the left
-                        if (x > 0) {
+                        if (x > 0)
+                        {
                             if (significantPixels[y][x - 1])
                             {
                                 islandWidth++;
-                                // Check if island is too large to tolerate
-                                if (islandWidth > SIZE_TOLERANCE) tooWide = true;
+                                // Check if island is too large
+                                if (islandWidth > sizeTolerance && islandHeight > sizeTolerance)
+                                    return false;
                             }
                             else islandWidth = 1;
                         }
@@ -280,7 +303,9 @@ namespace Voltorb_Flip.Calculator
                             if (significantPixels[y - 1][x])
                             {
                                 islandHeight++;
-                                if (islandHeight > SIZE_TOLERANCE) tooHigh = true;
+                                // Check if island is too large
+                                if (islandHeight > sizeTolerance && islandWidth > sizeTolerance)
+                                    return false;
                             }
                             else islandHeight = 1;
                         }
@@ -288,40 +313,197 @@ namespace Voltorb_Flip.Calculator
                 }
             }
 
-            // Free Memory
-            diff.UnlockBits(diffData);
-            // Verification fails only if an island is too wide and too high
-            return !(tooWide && tooHigh);
+            // No too-large island was found
+            return true;
+        }
+        bool VerifyToleranceRow(Bitmap diff)
+        {
+            int width = diff.Width;
+            // Get rgb values of diff image
+            byte[] rgbValues = diff.GetBGRAValues();
+
+            // Look at every pixel to determine where inconsistensies are
+            for (int x = 0; x < width; x++)
+            {
+                if (!IsTolerated(rgbValues, 0, x, width))
+                {
+                    /*DebugLog("X: " + x + "  B: " + rgbValues[blueIdx] + "\nG: " + rgbValues[blueIdx + 1] +
+                            "\nR: " + rgbValues[blueIdx + 2]);*/
+                    // No tolerance for any differences too large
+                    return false;
+                }
+            }
+
+            // Couldn't find any egregious discrepancies
+            return true;
+         }
+        
+        // More sophisticated island detection
+        bool VerifyToleranceBetter(Bitmap diff, bool strict)
+        {
+            // Activate strict size tolerance if needed
+            int sizeTolerance = SIZE_TOLERANCE;
+            if (strict) sizeTolerance = STRICT_SIZE_TOLERANCE;
+
+            int width = diff.Width;
+            int height = diff.Height;
+            // Get rgb values of diff image
+            byte[] rgbValues = diff.GetBGRAValues();
+
+            bool[,] visited = new bool[height, width];
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    if (!visited[y, x] && !IsTolerated(rgbValues, y, x, width))
+                    {
+                        // New untolerated region found, check if it is too large
+                        if (IslandTooBig(rgbValues, x, y, visited, width, height, sizeTolerance))
+                            return false;
+                    }
+                }
+            }
+            // No islands found that exceed tolerance
+            return true;
+        }
+        bool IslandTooBig(byte[] rgbValues, int x, int y, bool[,] visited, int arrayWidth, int arrayHeight, int tolerance)
+        {
+            // DFS APPROACH BELOW
+            /*// If island is already too big then give up
+            if (size.Width > tolerance && size.Height > tolerance) return size;
+
+            // Arrays to get correct neighboring indices
+            int[] yIndices = { 1, 0, 0, -1 };
+            int[] xIndices = { 0, 1, -1, 0 };
+
+            visited[y, x] = true;
+
+            // Check all four directions
+            for (int i = 0; i < 4; i++)
+            {
+                int yDiff = yIndices[i];
+                int xDiff = xIndices[i];
+                int yIdx = y + yDiff;
+                int xIdx = x + xDiff;
+
+                // Make sure we aren't crossing the bounds of the array
+                if (yIdx >= 0 && yIdx < arrayHeight && xIdx >= 0 && xIdx < arrayWidth
+                    // Check tolerance of neighboring pixels
+                    && !IsTolerated(rgbValues, yIdx, xIdx, arrayWidth) && !visited[yIdx, xIdx])
+                {
+                    size.Height += Math.Abs(yDiff);
+                    size.Width += Math.Abs(xDiff);
+                    size = SizeOfIsland(rgbValues, xIdx, yIdx, visited, size, arrayWidth, arrayHeight, tolerance);
+                }
+            }
+            // No more island extensions detected
+            DebugLog(size);
+            return size;*/
+
+            // BFS APPROACH BELOW
+            int width = 0; // Initialize island size counter
+            int height = 0;
+
+            // Queue to perform breadth-first search (BFS)
+            // Bool parameter is true if width should increase, false if height should
+            Queue<(Point, bool)> queue = new();
+            queue.Enqueue((new Point(x, y), true)); // Enqueue the starting point
+
+            while (queue.Count > 0)
+            {
+                // If island is already too big, just quit
+                if (width > tolerance && height > tolerance)
+                    return true;
+
+                (Point current, bool increaseWidth) = queue.Dequeue();
+                int currentX = current.X;
+                int currentY = current.Y;
+
+                // Check if the current pixel is within the image bounds and unvisited
+                if (currentX >= 0 && currentX < arrayWidth && currentY >= 0 && currentY < arrayHeight && !visited[currentY, currentX])
+                {
+                    visited[currentY, currentX] = true; // Mark the current pixel as visited
+
+                    // Check if the current pixel is within the tolerance and update the island size
+                    if (!IsTolerated(rgbValues, currentY, currentX, arrayWidth))
+                    {
+                        if (increaseWidth) width++;
+                        else height++;
+
+                        // Enqueue adjacent unvisited pixels
+                        queue.Enqueue((new Point(currentX + 1, currentY), true));
+                        queue.Enqueue((new Point(currentX - 1, currentY), true));
+                        queue.Enqueue((new Point(currentX, currentY + 1), false));
+                        queue.Enqueue((new Point(currentX, currentY - 1), false));
+                    }
+                }
+            }
+
+            // Check if the island size exceeds the tolerance
+            DebugLog(width > tolerance && height > tolerance);
+            return width > tolerance && height > tolerance;
+        }
+        bool IsTolerated(byte[] rgbValues, int y, int x, int width)
+        {
+            // Blue index is followed by green, red, then alpha
+            int blueIdx = 4 * (y * width + x);
+            byte blue = rgbValues[blueIdx];
+            byte green = rgbValues[blueIdx + 1];
+            byte red = rgbValues[blueIdx + 2];
+
+            if (blue > tolerance.Blue || green > tolerance.Green || red > tolerance.Red)
+            {
+                // Check if difference in all colors is basically the same
+                // If it is, then it's just a difference in brightness
+                if (Math.Abs(blue - green) <= BRIGHTNESS_TOLERANCE &&
+                    Math.Abs(blue - red) <= BRIGHTNESS_TOLERANCE &&
+                    Math.Abs(red - green) <= BRIGHTNESS_TOLERANCE)
+                    return true;
+                // Otherwise we won't tolerate it
+                return false;
+            }
+            // Color doesn't exceed tolerance
+            return true;
         }
 
         void ScanBoard(Bitmap screen, int startX, int startY)
         {
+            int cardTotalWidth = cardHidden.Width;
+            int cardTotalHeight = cardHidden.Height;
+            // Remove Close and Far Margins
+            int cardWidth = (int)(cardTotalWidth - IMAGE_MARGIN_FRACTION * cardTotalWidth * 2 + 0.5);
+            int cardHeight = (int)(cardTotalHeight - IMAGE_MARGIN_FRACTION * cardTotalHeight * 2 + 0.5);
+            // Scale to proper size
+            cardTotalWidth = (int)(cardTotalWidth * imageScale + 0.5);
+            cardTotalHeight = (int)(cardTotalHeight * imageScale + 0.5);
+            cardWidth = (int)(cardWidth * imageScale + 0.5);
+            cardHeight = (int)(cardHeight * imageScale + 0.5);
+            // Width and height between cards
+            int width = (int)(topLeftSelectedWidth * imageScale + 0.5); // Image Scale will always scale to an integer
+            int height = (int)(topLeftSelectedHeight * imageScale + 0.5); // Round properly just in case
             // Iterate over 5x5 board of cards
             for (int r = 0; r < 5; r++)
             {
                 for (int c = 0; c < 5; c++)
                 {
-                    int referenceWidth = cardHidden.Width;
-                    int referenceHeight = cardHidden.Height;
-                    int width = (int)(referenceWidth * imageScale + 0.5); // Image Scale will always scale to an integer
-                    int height = (int)(referenceHeight * imageScale + 0.5); // Round properly just in case
                     // Distance between cards is width of Top Left Reference Image
-                    int x = (startX + c * width) + (int)(IMAGE_MARGIN_FRACTION * width + 0.5); // Skip Margins
-                    int y = (startY + r * height) + (int)(IMAGE_MARGIN_FRACTION * height + 0.5);
-                    int cardWidth = (int)(width - IMAGE_MARGIN_FRACTION * width * 2 + 0.5); // Remove Close and Far Margins
-                    int cardHeight = (int)(height - IMAGE_MARGIN_FRACTION * height * 2 + 0.5); // Remove Close and Far Margins
+                    // Add 1 to width and height because it's 1 off ???
+                    int x = (startX + c * (width + 1)) + (int)(IMAGE_MARGIN_FRACTION * cardTotalWidth + 0.5); // Skip Margins
+                    int y = (startY + r * (height + 1)) + (int)(IMAGE_MARGIN_FRACTION * cardTotalHeight + 0.5);
+
                     Rectangle cardBounds = new(x, y, cardWidth, cardHeight);
                     using Bitmap card = screen.Clone(cardBounds, screen.PixelFormat);
 
                     // Resize card bitmap to reference size
-                    using Bitmap resizedCard = card.Resize(1.0 / imageScale); // Invert Scale b/c its backwards
-
+                    Bitmap resizedCard = card.Resize(1.0 / imageScale); // Invert Scale b/c its backwards
                     try
                     {
                         // Compare Resized Card to 1, 2, 3 reference images and Update Game Board
-                        if (ImageComparer.Compare(resizedCard, flippedOne, tolerance)) GameBoard[r][c] = 1;
-                        else if (ImageComparer.Compare(resizedCard, flippedTwo, tolerance)) GameBoard[r][c] = 2;
-                        else if (ImageComparer.Compare(resizedCard, flippedThree, tolerance)) GameBoard[r][c] = 3;
+                        // Use Stricter Comparison because the numbers are small
+                        if (Compare(resizedCard, flippedOne, true)) GameBoard[r][c] = 1;
+                        else if (Compare(resizedCard, flippedTwo, true)) GameBoard[r][c] = 2;
+                        else if (Compare(resizedCard, flippedThree, true)) GameBoard[r][c] = 3;
                         else GameBoard[r][c] = 0;
                     }
                     catch (InvalidOperationException)
@@ -333,6 +515,24 @@ namespace Voltorb_Flip.Calculator
 
             // Update the board in the window on the UI thread
             window.DispatcherQueue.TryEnqueue(() => window.UpdateBoard());
+        }
+
+        bool Compare(Bitmap bmp1, Bitmap bmp2, bool strict)
+        {
+            // Compare to reference images
+            bool same = ImageComparer.Compare(bmp1, bmp2,
+                tolerance, out Image diff);
+
+            // Analyze Difference Images to determine whether they are within tolerance
+            bool withinTolerance = VerifyToleranceBetter((Bitmap)diff, strict);
+            try
+            {
+                return same || withinTolerance;
+            }
+            finally
+            {
+                diff.Dispose();
+            }
         }
 
         // DEBUG
@@ -353,69 +553,6 @@ namespace Voltorb_Flip.Calculator
 
                 window.DebugImage(img);
             });
-        }
-    }
-
-    static class Extensions
-    {
-        /// <summary>
-        /// Determines whether two colors similar within a certain tolerance
-        /// </summary>
-        /// <param name="color">This Color</param>
-        /// <param name="other">Other Color</param>
-        /// <param name="tolerance">How far apart each RGB value can be</param>
-        /// <returns>True if similar, False if not</returns>
-        public static bool Similar(this Color color, Color other, ColorDifference tolerance)
-        {
-            byte alpha = (byte)Math.Abs(color.A - other.A);
-            byte red = (byte)Math.Abs(color.R - other.R);
-            byte green = (byte)Math.Abs(color.G - other.G);
-            byte blue = (byte)Math.Abs(color.B - other.B);
-            return alpha <= tolerance.Alpha && red <= tolerance.Red &&
-                green <= tolerance.Green && blue <= tolerance.Blue;
-        }
-
-        /// <summary>
-        /// Resizes a Bitmap to the specified width and height
-        /// </summary>
-        /// <param name="image">The bitmap to resize</param>
-        /// <param name="scale">The scale of the new image relative to the old image</param>
-        /// <returns>The new, resized bitmap</returns>
-        public static Bitmap Resize(this Bitmap image, double scale)
-        {
-            int width = (int)(image.Width * scale + 0.5);
-            int height = (int)(image.Height * scale + 0.5);
-            /*Bitmap destBitmap = new(width, height);
-
-            using (Graphics graphics = Graphics.FromImage(destBitmap))
-            {
-                graphics.DrawImage(image, 0, 0, width, height);
-            }*/
-
-            Bitmap destBitmap = new(image, width, height);
-
-            return destBitmap;
-        }
-
-        /// <summary>
-        /// Resizes a Bitmap to the specified width, maintaining height
-        /// </summary>
-        /// <param name="image">The bitmap to resize</param>
-        /// <param name="scale">The scale of the new image relative to the old image</param>
-        /// <returns>The new, resized bitmap</returns>
-        public static Bitmap ResizeWidth(this Bitmap image, double scale)
-        {
-            int width = (int)(image.Width * scale + 0.5);
-            /*Bitmap destBitmap = new(width, height);
-
-            using (Graphics graphics = Graphics.FromImage(destBitmap))
-            {
-                graphics.DrawImage(image, 0, 0, width, height);
-            }*/
-
-            Bitmap destBitmap = new(image, width, image.Height);
-
-            return destBitmap;
         }
     }
 }
