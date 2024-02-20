@@ -16,6 +16,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics.X86;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,7 @@ using Windows.Devices.Display;
 using Windows.Devices.Enumeration;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX.Direct3D11;
+using Windows.Services.TargetedContent;
 
 namespace Voltorb_Flip.Calculator
 {
@@ -39,7 +41,14 @@ namespace Voltorb_Flip.Calculator
         const int SIZE_TOLERANCE = 2;
         const int STRICT_SIZE_TOLERANCE = 1;
         const double IMAGE_MARGIN_FRACTION = (double)3 / 28;
+        const double VOLTORB_MARGIN_FRACTION = IMAGE_MARGIN_FRACTION * 2 / 3;
         const int MAX_SURROUNDING_DISTANCE = 30;
+        readonly Point POINTS_POS1 = new(9, 0);
+        readonly Point POINTS_POS2 = new(17, 0);
+        readonly Point VOLTORB_POS = new(17, 13);
+        readonly Size NUMBER_SIZE = new(6, 8);
+        // All number have black in this position
+        readonly Point BLACK_POS = new(3, 7);
 
         PixelFormat screenPixelFormat;
         int screenWidth;
@@ -65,10 +74,7 @@ namespace Voltorb_Flip.Calculator
 
             // Initialize all cards as hidden
             for (int i = 0; i < 5; i++)
-            {
-                GameBoard[i] = new ushort[5];
-                for (int j = 0; j < 5; j++) GameBoard[i][j] = 0;
-            }
+                for (int j = 0; j < 5; j++) GameBoard[i, j] = 0;
         }
 
         public bool CheckForGameOpen(Bitmap screenBitmap)
@@ -279,7 +285,7 @@ namespace Voltorb_Flip.Calculator
                 int islandWidth = 0;
                 for (int x = 0; x < width; x++)
                 {
-                    if (!IsTolerated(rgbValues, y, x, width))
+                    if (!IsTolerated(rgbValues, y, x, width, true))
                     {
                         /*DebugLog("X: " + x + "  Y: " + y + "  B: " + rgbValues[blueIdx] + "\nG: " + rgbValues[blueIdx + 1] +
                             "\nR: " + rgbValues[blueIdx + 2]);*/
@@ -325,7 +331,7 @@ namespace Voltorb_Flip.Calculator
             // Look at every pixel to determine where inconsistensies are
             for (int x = 0; x < width; x++)
             {
-                if (!IsTolerated(rgbValues, 0, x, width))
+                if (!IsTolerated(rgbValues, 0, x, width, true))
                 {
                     /*DebugLog("X: " + x + "  B: " + rgbValues[blueIdx] + "\nG: " + rgbValues[blueIdx + 1] +
                             "\nR: " + rgbValues[blueIdx + 2]);*/
@@ -337,9 +343,9 @@ namespace Voltorb_Flip.Calculator
             // Couldn't find any egregious discrepancies
             return true;
          }
-        
+
         // More sophisticated island detection
-        bool VerifyToleranceBetter(Bitmap diff, bool strict)
+        bool VerifyToleranceBetter(Bitmap diff, bool strict, bool tolerateBrightness)
         {
             // Activate strict size tolerance if needed
             int sizeTolerance = SIZE_TOLERANCE;
@@ -356,18 +362,21 @@ namespace Voltorb_Flip.Calculator
             {
                 for (int x = 0; x < width; x++)
                 {
-                    if (!visited[y, x] && !IsTolerated(rgbValues, y, x, width))
+                    if (!visited[y, x] && !IsTolerated(rgbValues, y, x, width, tolerateBrightness))
                     {
+                        DebugLog(x + ", " + y);
                         // New untolerated region found, check if it is too large
-                        if (IslandTooBig(rgbValues, x, y, visited, width, height, sizeTolerance))
+                        if (IslandTooBig(rgbValues, x, y, visited, width, height, sizeTolerance, tolerateBrightness))
                             return false;
                     }
+                    visited[y, x] = true;
                 }
             }
             // No islands found that exceed tolerance
             return true;
         }
-        bool IslandTooBig(byte[] rgbValues, int x, int y, bool[,] visited, int arrayWidth, int arrayHeight, int tolerance)
+        bool IslandTooBig(byte[] rgbValues, int x, int y, bool[,] visited,
+            int arrayWidth, int arrayHeight, int tolerance, bool tolerateBrightness)
         {
             // DFS APPROACH BELOW
             /*// If island is already too big then give up
@@ -426,8 +435,9 @@ namespace Voltorb_Flip.Calculator
                     visited[currentY, currentX] = true; // Mark the current pixel as visited
 
                     // Check if the current pixel is within the tolerance and update the island size
-                    if (!IsTolerated(rgbValues, currentY, currentX, arrayWidth))
+                    if (!IsTolerated(rgbValues, currentY, currentX, arrayWidth, tolerateBrightness))
                     {
+                        DebugLog(x + ", " + y);
                         if (increaseWidth) width++;
                         else height++;
 
@@ -441,10 +451,9 @@ namespace Voltorb_Flip.Calculator
             }
 
             // Check if the island size exceeds the tolerance
-            DebugLog(width > tolerance && height > tolerance);
             return width > tolerance && height > tolerance;
         }
-        bool IsTolerated(byte[] rgbValues, int y, int x, int width)
+        bool IsTolerated(byte[] rgbValues, int y, int x, int width, bool tolerateBrightness)
         {
             // Blue index is followed by green, red, then alpha
             int blueIdx = 4 * (y * width + x);
@@ -456,7 +465,7 @@ namespace Voltorb_Flip.Calculator
             {
                 // Check if difference in all colors is basically the same
                 // If it is, then it's just a difference in brightness
-                if (Math.Abs(blue - green) <= BRIGHTNESS_TOLERANCE &&
+                if (tolerateBrightness && Math.Abs(blue - green) <= BRIGHTNESS_TOLERANCE &&
                     Math.Abs(blue - red) <= BRIGHTNESS_TOLERANCE &&
                     Math.Abs(red - green) <= BRIGHTNESS_TOLERANCE)
                     return true;
@@ -493,18 +502,21 @@ namespace Voltorb_Flip.Calculator
                     int y = (startY + r * (height + 1)) + (int)(IMAGE_MARGIN_FRACTION * cardTotalHeight + 0.5);
 
                     Rectangle cardBounds = new(x, y, cardWidth, cardHeight);
-                    using Bitmap card = screen.Clone(cardBounds, screen.PixelFormat);
+                    using Bitmap card = screen.Clone(cardBounds, screenPixelFormat);
 
                     // Resize card bitmap to reference size
-                    Bitmap resizedCard = card.Resize(1.0 / imageScale); // Invert Scale b/c its backwards
+                    using Bitmap resizedCard = card.Resize(1.0 / imageScale); // Invert Scale b/c its backwards
                     try
                     {
                         // Compare Resized Card to 1, 2, 3 reference images and Update Game Board
                         // Use Stricter Comparison because the numbers are small
-                        if (Compare(resizedCard, flippedOne, true)) GameBoard[r][c] = 1;
-                        else if (Compare(resizedCard, flippedTwo, true)) GameBoard[r][c] = 2;
-                        else if (Compare(resizedCard, flippedThree, true)) GameBoard[r][c] = 3;
-                        else GameBoard[r][c] = 0;
+                        if (Compare(resizedCard, flippedOne, strict: true, tolerateBrightness: true)) 
+                            GameBoard[r, c] = 1;
+                        else if (Compare(resizedCard, flippedTwo, strict: true, tolerateBrightness: true)) 
+                            GameBoard[r, c] = 2;
+                        else if (Compare(resizedCard, flippedThree, strict: true, tolerateBrightness: true)) 
+                            GameBoard[r, c] = 3;
+                        else GameBoard[r, c] = 0;
                     }
                     catch (InvalidOperationException)
                     {
@@ -513,21 +525,112 @@ namespace Voltorb_Flip.Calculator
                 }
             }
 
+            // Check voltorb cards
+            int voltorbStartX = startX + 5 * (width + 1) + (int)(VOLTORB_MARGIN_FRACTION * cardTotalHeight + 0.5);
+            int voltorbStartY = startY + 5 * (height + 1) + (int)(VOLTORB_MARGIN_FRACTION * cardTotalHeight + 0.5);
+            int voltorbWidth = (int)(cardTotalWidth - VOLTORB_MARGIN_FRACTION * cardTotalWidth * 2 + 0.5);
+            int voltorbHeight = (int)(cardTotalWidth - VOLTORB_MARGIN_FRACTION * cardTotalHeight * 2 + 0.5);
+            for (ushort r = 0; r < 5; r++)
+            {
+                int y = startY + r * (height + 1) + (int)(VOLTORB_MARGIN_FRACTION * cardTotalHeight + 0.5);
+                
+                Rectangle cardBounds = new(voltorbStartX, y, voltorbWidth, voltorbHeight);
+                using Bitmap card = screen.Clone(cardBounds, screenPixelFormat);
+
+                using Bitmap resizedCard = card.Resize(1.0 / imageScale);
+
+                FindNumbersInCard(resizedCard, 1, r);
+            }
+            for (ushort c = 0; c < 5; c++)
+            {
+                int x = (startX + c * (height + 1)) + (int)(VOLTORB_MARGIN_FRACTION * cardTotalHeight + 0.5);
+
+                Rectangle cardBounds = new(x, voltorbStartY, voltorbWidth, voltorbHeight);
+                using Bitmap card = screen.Clone(cardBounds, screenPixelFormat);
+
+                using Bitmap resizedCard = card.Resize(1.0 / imageScale);
+
+                FindNumbersInCard(resizedCard, 0, c);
+            }
+
             // Update the board in the window on the UI thread
             window.DispatcherQueue.TryEnqueue(() => window.UpdateBoard());
         }
 
-        bool Compare(Bitmap bmp1, Bitmap bmp2, bool strict)
+        // TODO: DISTINGUISH BETWEEN 5 AND 6
+        public void FindNumbersInCard(Bitmap card, ushort row, ushort idx)
+        {
+            /*// First points number
+            Rectangle num1Location = new(POINTS_POS1, NUMBER_SIZE);
+            using Bitmap num1Bitmap = card.Clone(num1Location, card.PixelFormat);
+            ushort points1 = CompareAllNumbers(num1Bitmap);*/
+            // Second points number
+            Rectangle num2Location = new(POINTS_POS2, NUMBER_SIZE);
+            Bitmap num2Bitmap = card.Clone(num2Location, card.PixelFormat);
+            ushort points2 = CompareAllNumbers(num2Bitmap);
+            /*// Voltorb number
+            Rectangle voltorbNumLocation = new(VOLTORB_POS, NUMBER_SIZE);
+            using Bitmap voltorbNumBitmap = card.Clone(voltorbNumLocation, card.PixelFormat);
+            ushort voltorbNum = CompareAllNumbers(voltorbNumBitmap);
+
+            // Update Game Board Values
+            VoltorbBoard[row, idx] = new Point(points1 * 10 + points2, voltorbNum);
+            DebugLog(points1 + ", " + points2 + ", " + voltorbNum);
+            DebugImage(num2Bitmap);*/
+        }
+        ushort CompareAllNumbers(Bitmap bitmap)
+        {
+            Color black = bitmap.GetPixel(BLACK_POS.X, BLACK_POS.Y);
+
+            for (ushort i = 0; i < 10; i++)
+            {
+                if (CompareNumber(bitmap, numberBitmaps[i], black))
+                { DebugLog(i); return i; }
+            }
+            // If not found, just return 1
+            DebugLog("Number not found");
+            return 1;
+        }
+
+        // Need a separate comparison for numbers because backgrounds
+        // will be different colors
+        bool CompareNumber(Bitmap numBmp, Bitmap referenceBmp, Color black)
+        {
+            if (numBmp.Size != referenceBmp.Size) return false;
+            byte[] numRgb = numBmp.GetBGRAValues();
+            int width = numBmp.Width;
+            int height = numBmp.Height;
+
+            // Loop through pixels in both bitmaps,
+            // equating transparent with the background color
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    int blueIdx = 4 * (y * width + x);
+                    Color numColor = Color.FromArgb(numRgb[blueIdx + 3], numRgb[blueIdx + 2],
+                        numRgb[blueIdx + 1], numRgb[blueIdx]);
+
+                    // Set background pixels to transparent
+                    if (!numColor.Similar(black, tolerance))
+                        numBmp.SetPixel(x, y, Color.FromArgb(0));
+                }
+            }
+
+            return Compare(numBmp, referenceBmp, strict: true, tolerateBrightness: false);
+        }
+        bool Compare(Bitmap bmp1, Bitmap bmp2, bool strict, bool tolerateBrightness)
         {
             // Compare to reference images
             bool same = ImageComparer.Compare(bmp1, bmp2,
                 tolerance, out Image diff);
+            if (same) return true;
 
             // Analyze Difference Images to determine whether they are within tolerance
-            bool withinTolerance = VerifyToleranceBetter((Bitmap)diff, strict);
+            bool withinTolerance = VerifyToleranceBetter((Bitmap)diff, strict, tolerateBrightness);
             try
             {
-                return same || withinTolerance;
+                return withinTolerance;
             }
             finally
             {

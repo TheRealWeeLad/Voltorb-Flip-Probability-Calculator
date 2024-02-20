@@ -73,7 +73,7 @@ namespace Voltorb_Flip
 
         public void UpdateBoard()
         {
-            ushort[][] board = calculator.GameBoard;
+            ushort[,] board = calculator.GameBoard;
 
             // Initialize Board with 5 rows and 5 columns
             for (int r = 1; r <= 6; r++)
@@ -92,8 +92,8 @@ namespace Voltorb_Flip
                     Uri sourceUri;
                     if (c < 5 && r < 6)
                     {
-                        if (board[r - 1][c] == 0) sourceUri = HIDDEN_URI;
-                        else sourceUri = new(string.Format("ms-appx:///Assets/flipped-{0}-highres.png", board[r - 1][c]));
+                        if (board[r - 1, c] == 0) sourceUri = HIDDEN_URI;
+                        else sourceUri = new(string.Format("ms-appx:///Assets/flipped-{0}-highres.png", board[r - 1, c]));
                     } 
                     else
                     {
@@ -122,6 +122,9 @@ namespace Voltorb_Flip
         // UI Thread
         void Calibrate(object sender, RoutedEventArgs e)
         {
+            Bitmap test = System.Drawing.Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\test.png") as Bitmap;
+            Task.Run(() => calculator.FindNumbersInCard(test, 0, 3));
+            return;
             // Disable button until calibration is done
             CalibrateButton.IsEnabled = false;
 
