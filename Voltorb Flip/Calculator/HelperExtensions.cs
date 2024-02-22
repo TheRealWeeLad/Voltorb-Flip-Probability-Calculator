@@ -4,34 +4,48 @@ using System.Drawing.Imaging;
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
+using Microsoft.UI.Xaml.Media.Imaging;
+using System.IO;
 
 namespace Voltorb_Flip.Calculator
 {
     internal static class HelperExtensions
     {
         /// <summary>
-        /// Determines whether two colors similar within a certain tolerance
+        /// Determines whether two <see cref="Color"/> structures are
+        /// similar within a certain tolerance
         /// </summary>
-        /// <param name="color">This Color</param>
-        /// <param name="other">Other Color</param>
+        /// <param name="color">This <see cref="Color"/></param>
+        /// <param name="other">Other <see cref="Color"/></param>
         /// <param name="tolerance">How far apart each RGB value can be</param>
         /// <returns>True if similar, False if not</returns>
-        public static bool Similar(this Color color, Color other, ColorDifference tolerance)
+        public static bool Similar(this Color color, Color other, ColorDifference tolerance,
+            byte brightnessTolerance)
         {
             byte alpha = (byte)Math.Abs(color.A - other.A);
             byte red = (byte)Math.Abs(color.R - other.R);
             byte green = (byte)Math.Abs(color.G - other.G);
             byte blue = (byte)Math.Abs(color.B - other.B);
-            return alpha <= tolerance.Alpha && red <= tolerance.Red &&
-                green <= tolerance.Green && blue <= tolerance.Blue;
+
+            if (alpha > tolerance.Alpha || red > tolerance.Red ||
+                green > tolerance.Green || blue > tolerance.Blue)
+                {
+                // Color values outside of tolerance
+                // Check if it's just a brightness discrepancy
+                return Math.Abs(red - green) < brightnessTolerance && Math.Abs(red - blue)
+                    < brightnessTolerance && Math.Abs(green - blue) < brightnessTolerance;
+                }
+
+            // Colors within tolerance
+            return true;
         }
 
         /// <summary>
-        /// Resizes a Bitmap to the specified width and height
+        /// Resizes a <see cref="Bitmap"/> to the specified width and height
         /// </summary>
-        /// <param name="image">The bitmap to resize</param>
+        /// <param name="image">The <see cref="Bitmap"/> to resize</param>
         /// <param name="scale">The scale of the new image relative to the old image</param>
-        /// <returns>The new, resized bitmap</returns>
+        /// <returns>The new, resized <see cref="Bitmap"/></returns>
         public static Bitmap Resize(this Bitmap image, double scale)
         {
             int newWidth = (int)(image.Width * scale + 0.5);
@@ -49,11 +63,11 @@ namespace Voltorb_Flip.Calculator
         }
 
         /// <summary>
-        /// Resizes a Bitmap to the specified width, maintaining height
+        /// Resizes a <see cref="Bitmap"/> to the specified width, maintaining height
         /// </summary>
-        /// <param name="image">The bitmap to resize</param>
+        /// <param name="image">The <see cref="Bitmap"/> to resize</param>
         /// <param name="scale">The scale of the new image relative to the old image</param>
-        /// <returns>The new, resized bitmap</returns>
+        /// <returns>The new, resized <see cref="Bitmap"/></returns>
         public static Bitmap ResizeWidth(this Bitmap image, double scale)
         {
             int newWidth = (int)(image.Width * scale + 0.5);
@@ -70,13 +84,37 @@ namespace Voltorb_Flip.Calculator
         }
 
         /// <summary>
-        /// Gets the ARGB values of each pixel in a bitmap in a single-dimensional
-        /// byte array. For 32BPP, every 4 entries in the array describes a single pixel
+        /// Converts a <see cref="Bitmap"/> into a <see cref="BitmapImage"/>
+        /// for use in WinUI3 rendering (Must be run on the UI thread)
+        /// </summary>
+        /// <param name="image">The <see cref="Bitmap"/> to convert</param>
+        /// <param name="dispose">Should the <see cref="Bitmap"/> be disposed after
+        /// conversion</param>
+        /// <returns>The resulting BitmapImage</returns>
+        public static BitmapImage ConvertToBitmapImage(this Bitmap image, bool dispose)
+        {
+            BitmapImage img = new();
+            using (MemoryStream stream = new())
+            {
+                image.Save(stream, ImageFormat.Png);
+                stream.Position = 0;
+                img.SetSource(stream.AsRandomAccessStream());
+            }
+
+            if (dispose) image.Dispose();
+            return img;
+        }
+
+        /// <summary>
+        /// Gets the ARGB values of each pixel in a <see cref="Bitmap"/> in a single-dimensional
+        /// byte array. For <see cref="PixelFormat.Format32bppArgb">32BPP</see>, 
+        /// every 4 entries in the array describes a single pixel
         /// (order: BGRA)
         /// </summary>
-        /// <param name="bitmap">The bitmap to get the argb values from</param>
+        /// <param name="bitmap">The <see cref="Bitmap"/> to get the argb values from</param>
         /// <returns>
-        /// A single-dimensional byte array containing pixel color information in BGRA order
+        /// A single-dimensional byte array containing pixel <see cref="Color"/>
+        /// information in BGRA order
         /// </returns>
         public static byte[] GetBGRAValues(this Bitmap bitmap)
         {
