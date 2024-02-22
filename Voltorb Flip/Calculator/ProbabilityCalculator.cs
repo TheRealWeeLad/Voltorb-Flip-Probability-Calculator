@@ -9,8 +9,8 @@ namespace Voltorb_Flip.Calculator
 {
     partial class ProbabilityCalculator
     {
-        readonly public ushort[,] GameBoard = new ushort[5,5];
+        public ushort[,] GameBoard { get; } = new ushort[5,5];
         // X-value of Point represents point values per column, y-value is voltorb numbers
-        readonly Point[,] VoltorbBoard = new Point[2, 5]; // Row 1 is Vertical, 2 is Horizontal
+        Point[,] VoltorbBoard { get; } = new Point[2, 5]; // Row 1 is Vertical, 2 is Horizontal
     }
 }

@@ -37,9 +37,10 @@ namespace Voltorb_Flip
     {
         // Constants
         const int CARD_SIZE = 88;
-        readonly Uri HIDDEN_URI = new("ms-appx:///Assets/card-hidden.png");
+        readonly BitmapImage HIDDEN_IMAGE = new(new Uri("ms-appx:///Assets/card-hidden.png"));
 
         readonly ProbabilityCalculator calculator;
+        public readonly BitmapImage[] voltorbImages;
 
         class TaskCanceler
         {
@@ -59,6 +60,11 @@ namespace Voltorb_Flip
 
             // Initialize Calculator
             calculator = new(this);
+
+            // Initialize Voltorb Images
+            voltorbImages = new BitmapImage[10];
+            for (int i = 1; i <= 10; i++)
+                voltorbImages[i - 1] = new(new Uri(string.Format("ms-appx:///Assets/voltorb{0}.png", i)));
 
             // Initialize an Empty 5x5 Board
             UpdateBoard();
@@ -89,17 +95,17 @@ namespace Voltorb_Flip
 
                     // Fill 5x5 square with unflipped cards
                     // Fill last row and column with voltorb indicators
-                    Uri sourceUri;
+                    BitmapImage sourceImage;
                     if (c < 5 && r < 6)
                     {
-                        if (board[r - 1, c] == 0) sourceUri = HIDDEN_URI;
-                        else sourceUri = new(string.Format("ms-appx:///Assets/flipped-{0}-highres.png", board[r - 1, c]));
+                        if (board[r - 1, c] == 0) sourceImage = HIDDEN_IMAGE;
+                        else sourceImage = new(new Uri(string.Format("ms-appx:///Assets/flipped-{0}-highres.png", board[r - 1, c])));
                     } 
                     else
                     {
                         // Index voltorb images by the row/column
-                        int voltorbIdx = c == 5 ? r : c + 6;
-                        sourceUri = new Uri(string.Format("ms-appx:///Assets/voltorb{0}.png", voltorbIdx));
+                        int voltorbIdx = c == 5 ? r - 1 : c + 5;
+                        sourceImage = voltorbImages[voltorbIdx];
                     }
 
                     Canvas canvas = new();
@@ -109,7 +115,7 @@ namespace Voltorb_Flip
                         Width = CARD_SIZE,
                         Height = CARD_SIZE,
                         HorizontalAlignment = HorizontalAlignment.Center,
-                        Source = new BitmapImage(sourceUri)
+                        Source = sourceImage
                     };
                     canvas.Children.Add(hiddenCardImg);
                     Grid.SetColumn(canvas, c);
@@ -122,9 +128,6 @@ namespace Voltorb_Flip
         // UI Thread
         void Calibrate(object sender, RoutedEventArgs e)
         {
-            Bitmap test = System.Drawing.Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\test.png") as Bitmap;
-            Task.Run(() => calculator.FindNumbersInCard(test, 0, 3));
-            return;
             // Disable button until calibration is done
             CalibrateButton.IsEnabled = false;
 
