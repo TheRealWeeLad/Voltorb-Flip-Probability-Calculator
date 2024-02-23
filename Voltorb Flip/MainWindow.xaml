@@ -8,7 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid x:Name="GridObj" RowDefinitions="32,*,*,*,*,*,*,100">
+    <Grid x:Name="GridObj" RowDefinitions="32,*,*,*,*,*,*,100,100">
         <!-- App Title Bar -->
         <Grid
             x:Name="AppTitleBar"
@@ -34,18 +34,30 @@
         <Grid x:Name="Row5" Grid.Row="5" ColumnDefinitions="*,*,*,*,*,*"></Grid>
         <Grid x:Name="Row6" Grid.Row="6" ColumnDefinitions="*,*,*,*,*,*"></Grid>
         <Grid x:Name="ButtonRow" Grid.Row="7" ColumnDefinitions="*,*,*">
+            <ToggleButton
+                x:Name="CaptureModeButton" Content="Continuous Capture Mode"
+                Grid.Column="0" HorizontalAlignment="Left" Margin="100, 0, 0, 0"
+                FontSize="22" Checked="DisableCaptureButton"
+                Unchecked="EnableCaptureButton"/>
             <Button
                 x:Name="CalibrateButton" Content="Calibrate"
-                Click="Calibrate" Grid.Column="0"
-                Margin="100,20,0,20" Width="200"
+                Click="Calibrate" Grid.Column="1"
+                Margin="0,20,0,20" Width="200"
                 HorizontalAlignment="Center"
                 Foreground="Yellow" BorderThickness="5"
                 FontSize="22"/>
+            <Button
+                x:Name="CaptureButton" Content="Capture Screen"
+                Grid.Column="2" HorizontalAlignment="Right" Margin="0, 0, 100, 0"
+                Foreground="Yellow" FontSize="22"
+                IsEnabled="False" Click="TakeCapture"/>
+        </Grid>
+        <Grid x:Name="DebugRow" Grid.Row="8" ColumnDefinitions="*,*">
             <TextBlock 
-                x:Name="DebugText" Grid.Column="1"
+                x:Name="DebugText" Grid.Column="0"
                 HorizontalAlignment="Center" FontSize="25">DEBUG</TextBlock>
-            <Image x:Name="DebugImg" Grid.Column="2"
-                   Height="100" Width="100" Source="Assets/Square150x150Logo.scale-200.png"></Image>
+            <Image x:Name="DebugImg" Grid.Column="1" HorizontalAlignment="Center"
+                Height="100" Width="100" Source="Assets/Square150x150Logo.scale-200.png"></Image>
         </Grid>
     </Grid>
 </Window>

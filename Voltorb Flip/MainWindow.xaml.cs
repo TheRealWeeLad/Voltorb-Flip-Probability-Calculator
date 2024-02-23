@@ -42,6 +42,8 @@ namespace Voltorb_Flip
         readonly ProbabilityCalculator calculator;
         public readonly BitmapImage[] voltorbImages;
 
+        bool _calibrated = false;
+
         class TaskCanceler
         {
             public bool canceled = false;
@@ -78,6 +80,7 @@ namespace Voltorb_Flip
             }
         }
 
+        // Update onscreen board with internal game state values
         public void UpdateBoard()
         {
             ushort[,] board = calculator.GameBoard;
@@ -194,32 +197,48 @@ namespace Voltorb_Flip
         {
             // Cancel Text Animation
             AnimateCanceler.Cancel();
-            // Reenable Button and Revert Text
             DispatcherQueue.TryEnqueue(() =>
             {
+                // Reenable Button and Revert Text
                 CalibrateButton.Content = "Calibrate";
                 CalibrateButton.IsEnabled = true;
+
+                // Start Game Loop If Game Was Found
+                if (foundGame)
+                {
+                    _calibrated = true;
+
+                    // Enable Capture Button if Continuous Capture is Unchecked
+                    if (!(bool)CaptureModeButton.IsChecked)
+                        CaptureButton.IsEnabled = true;
+                    else
+                    {
+                        // Otherwise Begin Game Loop
+                        GameLoopCanceler.Reset();
+                        Task.Run(() => GameLoop(GameLoopCanceler));
+                    }
+                }
             });
 
-            // Start Game Loop If Game Was Found
-            if (foundGame)
-            {
-                GameLoopCanceler.Reset();
-                Task.Run(() => GameLoop(GameLoopCanceler));
-            }
+            
         }
 
         // Background Thread
-        async void GameLoop(TaskCanceler Canceler)
+        void GameLoop(TaskCanceler Canceler)
         {
             while (!Canceler.canceled)
             {
-                // Take Screenshot and Scan Board
-                Bitmap screenBitmap = await CaptureScreen();
-                calculator.ScanBoard(screenBitmap);
+                CaptureAndScan();
 
                 Thread.Sleep(1000); // Recheck screen every second
             }
+        }
+
+        // Take Screenshot and Scan Board
+        async void CaptureAndScan()
+        {
+            Bitmap screenBitmap = await CaptureScreen();
+            calculator.ScanBoard(screenBitmap);
         }
 
         // Background Thread
@@ -236,6 +255,21 @@ namespace Voltorb_Flip
                 Thread.Sleep(200);
             }
         }
+
+        // Button Handlers
+        public void EnableCaptureButton(object sender, RoutedEventArgs e)
+        {
+            if (_calibrated)
+                CaptureButton.IsEnabled = true;
+            // Stop Game Loop Because Continuous Capture Has Been Disabled
+            GameLoopCanceler.Cancel();
+        } 
+        public void DisableCaptureButton(object sender, RoutedEventArgs e)
+        {
+            if (_calibrated)
+                CaptureButton.IsEnabled = false;
+        }
+        public void TakeCapture(object sender, RoutedEventArgs e) => CaptureAndScan();
 
         // DEBUG
         public void DebugLog(object msg)
