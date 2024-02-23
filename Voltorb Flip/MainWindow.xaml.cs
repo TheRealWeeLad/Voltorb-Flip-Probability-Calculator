@@ -167,7 +167,7 @@ namespace Voltorb_Flip
                 time += 500;
             }
 
-            EndCalibration();
+            EndCalibration(found);
         }
 
         // Background Thread
@@ -190,7 +190,7 @@ namespace Voltorb_Flip
         }
 
         // Background Thread
-        public void EndCalibration()
+        void EndCalibration(bool foundGame)
         {
             // Cancel Text Animation
             AnimateCanceler.Cancel();
@@ -201,9 +201,12 @@ namespace Voltorb_Flip
                 CalibrateButton.IsEnabled = true;
             });
 
-            // Start Game Loop
-            GameLoopCanceler.Reset();
-            Task.Run(() => GameLoop(GameLoopCanceler));
+            // Start Game Loop If Game Was Found
+            if (foundGame)
+            {
+                GameLoopCanceler.Reset();
+                Task.Run(() => GameLoop(GameLoopCanceler));
+            }
         }
 
         // Background Thread
