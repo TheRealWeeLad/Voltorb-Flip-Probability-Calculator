@@ -2,13 +2,10 @@
 using System;
 using System.Drawing.Imaging;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System.IO;
-using Windows.Graphics.Imaging;
-using System.Threading.Tasks;
-using Windows.ApplicationModel.Chat;
-using System.Runtime.CompilerServices;
 
 namespace Voltorb_Flip.Calculator
 {
@@ -57,8 +54,8 @@ namespace Voltorb_Flip.Calculator
 
             using (Graphics graphics = Graphics.FromImage(result))
             {
-                graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-                graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                graphics.PixelOffsetMode = PixelOffsetMode.Half;
                 graphics.DrawImage(image, 0, 0, newWidth, newHeight);
             }
 
@@ -78,8 +75,8 @@ namespace Voltorb_Flip.Calculator
 
             using (Graphics graphics = Graphics.FromImage(result))
             {
-                graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-                graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                graphics.PixelOffsetMode = PixelOffsetMode.Half;
                 graphics.DrawImage(image, 0, 0, newWidth, 1);
             }
             
