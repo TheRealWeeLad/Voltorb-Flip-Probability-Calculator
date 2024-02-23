@@ -405,11 +405,15 @@ namespace Voltorb_Flip.Calculator
         /// <param name="tolerateBrightness">Should we tolerate differences in brightness</param>
         /// <returns>True if the two original <see cref="Bitmap"/>s are determined to
         /// be close enough to be practically the same, False otherwise</returns>
-        bool VerifyTolerance(Bitmap diff, bool strict, bool tolerateBrightness)
+        bool VerifyTolerance(Bitmap diff, bool tolerateSize, bool strict, bool tolerateBrightness)
         {
             // Activate strict size tolerance if needed
-            int sizeTolerance = SIZE_TOLERANCE;
-            if (strict) sizeTolerance = STRICT_SIZE_TOLERANCE;
+            int sizeTolerance = 0;
+            if (tolerateSize)
+            {
+                sizeTolerance = SIZE_TOLERANCE;
+                if (strict) sizeTolerance = STRICT_SIZE_TOLERANCE;
+            }
 
             int width = diff.Width;
             int height = diff.Height;
@@ -607,12 +611,12 @@ namespace Voltorb_Flip.Calculator
                         {
                             // Compare Resized Card to 1, 2, 3 reference images and Update Game Board
                             // Use Stricter Comparison because the numbers are small
-                            if (Compare(croppedCard, flippedOne, strict: true, tolerateBrightness: true))
+                            if (Compare(croppedCard, flippedOne, tolerateSize: true, strict: true, tolerateBrightness: true))
                                 GameBoard[r, c] = 1;
                             // Don't tolerate brightness in 2 because it's too similar to 3
-                            else if (Compare(croppedCard, flippedTwo, strict: true, tolerateBrightness: false))
+                            else if (Compare(croppedCard, flippedTwo, tolerateSize: true, strict: true, tolerateBrightness: false))
                                 GameBoard[r, c] = 2;
-                            else if (Compare(croppedCard, flippedThree, strict: true, tolerateBrightness: true))
+                            else if (Compare(croppedCard, flippedThree, tolerateSize: true, strict: true, tolerateBrightness: true))
                                 GameBoard[r, c] = 3;
                             else GameBoard[r, c] = 0;
                         }
@@ -654,7 +658,6 @@ namespace Voltorb_Flip.Calculator
             window.DispatcherQueue.TryEnqueue(() => window.UpdateBoard());
         }
 
-        // TODO: DISTINGUISH BETWEEN 5 AND 6
         void FindNumbersInCard(Bitmap card, ushort row, int idx)
         {
             ushort points1, points2, voltorbNum;
@@ -673,8 +676,6 @@ namespace Voltorb_Flip.Calculator
                 voltorbNum = CompareAllNumbers(voltorbNumBitmap);
 
             // Update Game Board Values
-            DebugLog(points1 + ", " + points2 + ", " + voltorbNum);
-            Thread.Sleep(1000);
             VoltorbBoard[row, idx] = new Point(points1 * 10 + points2, voltorbNum);
         }
         ushort CompareAllNumbers(Bitmap bitmap)
@@ -683,7 +684,11 @@ namespace Voltorb_Flip.Calculator
 
             for (ushort i = 0; i < 10; i++)
             {
-                if (CompareNumber(bitmap, numberBitmaps[i], black))
+                bool tolerateSize = true;
+                // 5 and 6 too similar to tolerate size differences
+                if (i == 5 || i == 6) tolerateSize = false;
+
+                if (CompareNumber(bitmap, numberBitmaps[i], black, tolerateSize))
                     return i;
             }
             // If not found, just return 5 cuz why not :D
@@ -692,7 +697,7 @@ namespace Voltorb_Flip.Calculator
         }
 
         // Need to preprocess numbers because backgrounds will be different colors
-        bool CompareNumber(Bitmap numBmp, Bitmap referenceBmp, Color black)
+        bool CompareNumber(Bitmap numBmp, Bitmap referenceBmp, Color black, bool tolerateSize)
         {
             if (numBmp.Size != referenceBmp.Size) return false;
             byte[] numRgb = numBmp.GetBGRAValues();
@@ -715,9 +720,9 @@ namespace Voltorb_Flip.Calculator
                 }
             }
 
-            return Compare(numBmp, referenceBmp, strict: true, tolerateBrightness: false);
+            return Compare(numBmp, referenceBmp, tolerateSize, strict: true, tolerateBrightness: false);
         }
-        bool Compare(Bitmap bmp1, Bitmap bmp2, bool strict, bool tolerateBrightness)
+        bool Compare(Bitmap bmp1, Bitmap bmp2, bool tolerateSize, bool strict, bool tolerateBrightness)
         {
             // Compare to reference images
             bool same = ImageComparer.Compare(bmp1, bmp2,
@@ -725,7 +730,7 @@ namespace Voltorb_Flip.Calculator
             if (same) return true;
 
             // Analyze Difference Images to determine whether they are within tolerance
-            bool withinTolerance = VerifyTolerance((Bitmap)diff, strict, tolerateBrightness);
+            bool withinTolerance = VerifyTolerance((Bitmap)diff, tolerateSize, strict, tolerateBrightness);
             try
             {
                 return withinTolerance;
