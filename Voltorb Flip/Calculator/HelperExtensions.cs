@@ -150,8 +150,8 @@ namespace Voltorb_Flip.Calculator
         /// <returns>The updated <see cref="Rectangle"/></returns>
         public static Rectangle Multiply(this Rectangle r, double scalar)
         {
-            return new Rectangle((int)(r.X * scalar), (int)(r.Y * scalar), 
-                (int)(r.Width * scalar), (int)(r.Height * scalar));
+            return new Rectangle((int)(r.X * scalar + 0.5), (int)(r.Y * scalar + 0.5), 
+                (int)(r.Width * scalar + 0.5), (int)(r.Height * scalar + 0.5));
         }
     }
 }
