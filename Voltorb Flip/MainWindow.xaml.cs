@@ -49,6 +49,7 @@ namespace Voltorb_Flip
             public void Reset() => canceled = false;
         }
         readonly TaskCanceler AnimateCanceler = new();
+        readonly TaskCanceler GameLoopCanceler = new();
 
         public MainWindow()
         {
@@ -131,6 +132,9 @@ namespace Voltorb_Flip
             // Disable button until calibration is done
             CalibrateButton.IsEnabled = false;
 
+            // Cancel any currently running game
+            GameLoopCanceler.Cancel();
+
             // Animate Text Box while Calibrating
             AnimateCanceler.Reset();
             Task.Run(() => { CalibrateText(AnimateCanceler); } );
@@ -167,7 +171,7 @@ namespace Voltorb_Flip
         }
 
         // Background Thread
-        async Task<Bitmap> CaptureScreen()
+        static async Task<Bitmap> CaptureScreen()
         {
             // Find info about main monitor
             DeviceInformationCollection displayList = await DeviceInformation
@@ -196,6 +200,23 @@ namespace Voltorb_Flip
                 CalibrateButton.Content = "Calibrate";
                 CalibrateButton.IsEnabled = true;
             });
+
+            // Start Game Loop
+            GameLoopCanceler.Reset();
+            Task.Run(() => GameLoop(GameLoopCanceler));
+        }
+
+        // Background Thread
+        async void GameLoop(TaskCanceler Canceler)
+        {
+            while (!Canceler.canceled)
+            {
+                // Take Screenshot and Scan Board
+                Bitmap screenBitmap = await CaptureScreen();
+                calculator.ScanBoard(screenBitmap);
+
+                Thread.Sleep(1000); // Recheck screen every second
+            }
         }
 
         // Background Thread
