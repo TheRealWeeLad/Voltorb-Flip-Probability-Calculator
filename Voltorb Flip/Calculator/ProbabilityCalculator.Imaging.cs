@@ -658,6 +658,14 @@ namespace Voltorb_Flip.Calculator
             window.DispatcherQueue.TryEnqueue(() => window.UpdateBoard());
         }
 
+        /// <summary>
+        /// Looks at the numbers within a voltorb card and updates the internal
+        /// game board with the detected numbers
+        /// </summary>
+        /// <param name="card"><see cref="Bitmap"/> of a voltorb card</param>
+        /// <param name="row">Which row of the internal game board to update 
+        /// (0 if card is in the right column, 1 if card is in the bottom row)</param>
+        /// <param name="idx">The index of the card in its row/column</param>
         void FindNumbersInCard(Bitmap card, ushort row, int idx)
         {
             ushort points1, points2, voltorbNum;
@@ -678,6 +686,12 @@ namespace Voltorb_Flip.Calculator
             // Update Game Board Values
             VoltorbBoard[row, idx] = new Point(points1 * 10 + points2, voltorbNum);
         }
+        /// <summary>
+        /// Compares <paramref name="bitmap"/> with all reference numbers to find
+        /// which number it is
+        /// </summary>
+        /// <param name="bitmap"><see cref="Bitmap"/> of the number to compare</param>
+        /// <returns>The number within the bitmap</returns>
         ushort CompareAllNumbers(Bitmap bitmap)
         {
             Color black = bitmap.GetPixel(BLACK_POS.X, BLACK_POS.Y);
@@ -696,7 +710,17 @@ namespace Voltorb_Flip.Calculator
             return 5;
         }
 
-        // Need to preprocess numbers because backgrounds will be different colors
+        /// <summary>
+        /// Preprocess <paramref name="numBmp"/> to remove background colors to prepare
+        /// for image comparison and then compare with <paramref name="referenceBmp"/>
+        /// </summary>
+        /// <param name="numBmp"><see cref="Bitmap"/> of a number</param>
+        /// <param name="referenceBmp">reference <see cref="Bitmap"/> to compare to</param>
+        /// <param name="black">The <see cref="Color"/> representing the color of the number
+        /// within <paramref name="numBmp"/></param>
+        /// <param name="tolerateSize">Should tolerate small differences in pixel color</param>
+        /// <returns>True if <paramref name="numBmp"/> is the same number as
+        /// <paramref name="referenceBmp"/>, false otherwise</returns>
         bool CompareNumber(Bitmap numBmp, Bitmap referenceBmp, Color black, bool tolerateSize)
         {
             if (numBmp.Size != referenceBmp.Size) return false;
@@ -722,6 +746,15 @@ namespace Voltorb_Flip.Calculator
 
             return Compare(numBmp, referenceBmp, tolerateSize, strict: true, tolerateBrightness: false);
         }
+        /// <summary>
+        /// Compare two <see cref="Bitmap"/>s to determine if they are the same
+        /// </summary>
+        /// <param name="bmp1">First <see cref="Bitmap"/></param>
+        /// <param name="bmp2">Second <see cref="Bitmap"/></param>
+        /// <param name="tolerateSize">Should tolerate small differences in pixel color</param>
+        /// <param name="strict">Should use a stricter tolerance for color differences</param>
+        /// <param name="tolerateBrightness">Should tolerate differences in brightness</param>
+        /// <returns>True if the two <see cref="Bitmap"/>s are the same, false otherwise</returns>
         bool Compare(Bitmap bmp1, Bitmap bmp2, bool tolerateSize, bool strict, bool tolerateBrightness)
         {
             // Compare to reference images
