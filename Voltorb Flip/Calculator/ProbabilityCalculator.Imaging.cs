@@ -12,6 +12,7 @@ using System.ComponentModel;
 using System.ComponentModel.Design;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -26,8 +27,10 @@ using Windows.ApplicationModel.LockScreen;
 using Windows.ApplicationModel.VoiceCommands;
 using Windows.Devices.Display;
 using Windows.Devices.Enumeration;
+using Windows.Globalization.NumberFormatting;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX.Direct3D11;
+using Windows.Security.Isolation;
 using Windows.Services.TargetedContent;
 
 namespace Voltorb_Flip.Calculator
@@ -41,8 +44,9 @@ namespace Voltorb_Flip.Calculator
         readonly ColorDifference tolerance = new(255, COLOR_TOLERANCE, COLOR_TOLERANCE, COLOR_TOLERANCE);
         const int SIZE_TOLERANCE = 2;
         const int STRICT_SIZE_TOLERANCE = 1;
-        const double IMAGE_MARGIN_FRACTION = (double)3 / 28;
+        const double IMAGE_MARGIN_FRACTION = 3.0 / 28;
         const int MAX_SURROUNDING_DISTANCE = 30;
+        const double VOLTORB_IMAGE_SCALE = 158.0 / 28;
         readonly Point POINTS_POS1 = new(11, 2);
         readonly Point POINTS_POS2 = new(19, 2);
         readonly Point VOLTORB_POS = new(19, 15);
@@ -58,28 +62,6 @@ namespace Voltorb_Flip.Calculator
         double _imageScale = 1;
         int _startX = 0;
         int _startY = 0;
-
-        public ProbabilityCalculator(MainWindow window)
-        {
-            this.window = window;
-
-            // Initialize top rows of selected and unselected top-left squares
-            Rectangle selectedBounds = new(0, 0, topLeftSelected.Width, 1);
-            topRowSelected = topLeftSelected.Clone(selectedBounds, topLeftSelected.PixelFormat);
-            Rectangle unselectedBounds = new(0, 0, topLeftUnselected.Width, 1);
-            topRowUnselected = topLeftUnselected.Clone(unselectedBounds, topLeftUnselected.PixelFormat);
-
-            // Initialize Reference Quantities
-            topLeftSelectedHeight = topLeftSelected.Height;
-            topLeftSelectedWidth = topLeftSelected.Width;
-            topLeftSurroundingColor = topLeftSelected.GetPixel(0, 0);
-            topLeftSelectedBorderColor = topLeftSelected.GetPixel(1, 0);
-            topLeftUnselectedBorderColor = topLeftUnselected.GetPixel(1, 0);
-
-            // Initialize all cards as hidden
-            for (int i = 0; i < 5; i++)
-                for (int j = 0; j < 5; j++) GameBoard[i, j] = 0;
-        }
 
         /// <summary>
         /// Analyzes the screen and tries to find the game board
@@ -630,24 +612,20 @@ namespace Voltorb_Flip.Calculator
                         if (r == 5 && c == 5) continue; // No card there
 
                         int voltorbIdx;
+                        ushort[] numbers;
                         if (c == 5) // Vertical Numbers
                         {
-                            FindNumbersInCard(resizedCard, 0, r);
+                            numbers = FindNumbersInCard(resizedCard, 0, r);
                             voltorbIdx = r;
                         }
                         else // Horizontal Numbers
                         {
-                            FindNumbersInCard(resizedCard, 1, c);
+                            numbers = FindNumbersInCard(resizedCard, 1, c);
                             voltorbIdx = c + 5;
                         }
 
-                        // Crop original card bitmap to display only card
-                        Rectangle bounds = new(0, 0, totalWidth, totalHeight);
-                        Bitmap croppedCard = card.Clone(bounds, card.PixelFormat);
-                        
-                        // Update voltorb images in window
-                        window.DispatcherQueue.TryEnqueue(() =>
-                            window.voltorbImages[voltorbIdx] = croppedCard.ConvertToBitmapImage(true));   
+                        // Update voltorb image with detected numbers
+                        UpdateVoltorbImage(numbers, voltorbIdx);
                     }
                 }
             }
@@ -659,6 +637,42 @@ namespace Voltorb_Flip.Calculator
         }
 
         /// <summary>
+        /// Update the window's voltorb images to correctly represent the game board
+        /// </summary>
+        /// <param name="numbers">An array of the numbers in the onscreen voltorb card</param>
+        /// <param name="voltorbIdx">The index of which voltorb card to use</param>
+        void UpdateVoltorbImage(ushort[] numbers, int voltorbIdx)
+        {
+            Bitmap originalImage = voltorbBitmaps[voltorbIdx].Clone() as Bitmap;
+            Bitmap points1Bitmap = numberBitmaps[numbers[0]];
+            Bitmap points2Bitmap = numberBitmaps[numbers[1]];
+            Bitmap voltorbBitmap = numberBitmaps[numbers[2]];
+            
+            using (Graphics graphics = Graphics.FromImage(originalImage))
+            {
+                // Get Positions of All Numbers
+                Rectangle points1Rect = new Rectangle(POINTS_POS1, NUMBER_SIZE)
+                    .Multiply(VOLTORB_IMAGE_SCALE);
+                Rectangle points2Rect = new Rectangle(POINTS_POS2, NUMBER_SIZE)
+                    .Multiply(VOLTORB_IMAGE_SCALE);
+                Rectangle voltorbRect = new Rectangle(VOLTORB_POS, NUMBER_SIZE)
+                    .Multiply(VOLTORB_IMAGE_SCALE);
+
+                graphics.InterpolationMode = InterpolationMode.NearestNeighbor;
+                graphics.PixelOffsetMode = PixelOffsetMode.Half;
+
+                // Draw numbers in their specified positions
+                graphics.DrawImage(points1Bitmap, points1Rect);
+                graphics.DrawImage(points2Bitmap, points2Rect);
+                graphics.DrawImage(voltorbBitmap, voltorbRect);
+            }
+
+            // Update window voltorb images
+            window.DispatcherQueue.TryEnqueue(() =>
+                window.voltorbImages[voltorbIdx] = originalImage.ConvertToBitmapImage(true));
+        }
+
+        /// <summary>
         /// Looks at the numbers within a voltorb card and updates the internal
         /// game board with the detected numbers
         /// </summary>
@@ -666,7 +680,9 @@ namespace Voltorb_Flip.Calculator
         /// <param name="row">Which row of the internal game board to update 
         /// (0 if card is in the right column, 1 if card is in the bottom row)</param>
         /// <param name="idx">The index of the card in its row/column</param>
-        void FindNumbersInCard(Bitmap card, ushort row, int idx)
+        /// <returns>An array of the numbers in the card (length 3) (order: points 
+        /// number 1, points number 2, voltorb number)</returns>
+        ushort[] FindNumbersInCard(Bitmap card, ushort row, int idx)
         {
             ushort points1, points2, voltorbNum;
 
@@ -685,6 +701,8 @@ namespace Voltorb_Flip.Calculator
 
             // Update Game Board Values
             VoltorbBoard[row, idx] = new Point(points1 * 10 + points2, voltorbNum);
+
+            return new ushort[] { points1, points2, voltorbNum };
         }
         /// <summary>
         /// Compares <paramref name="bitmap"/> with all reference numbers to find
