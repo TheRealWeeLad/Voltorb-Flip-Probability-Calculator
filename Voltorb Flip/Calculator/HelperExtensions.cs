@@ -3,9 +3,12 @@ using System;
 using System.Drawing.Imaging;
 using System.Drawing;
 using System.Runtime.InteropServices;
-using System.Runtime.CompilerServices;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System.IO;
+using Windows.Graphics.Imaging;
+using System.Threading.Tasks;
+using Windows.ApplicationModel.Chat;
+using System.Runtime.CompilerServices;
 
 namespace Voltorb_Flip.Calculator
 {
@@ -136,6 +139,19 @@ namespace Voltorb_Flip.Calculator
             bitmap.UnlockBits(bitmapData);
 
             return rgbValues;
+        }
+
+        /// <summary>
+        /// Multiplies a <see cref="Rectangle"/> by a <paramref name="scalar"/> double
+        /// </summary>
+        /// <param name="r">The <see cref="Rectangle"/> to multiply</param>
+        /// <param name="scalar">A double value to multiply each parameter of
+        /// <paramref name="r"/> by</param>
+        /// <returns>The updated <see cref="Rectangle"/></returns>
+        public static Rectangle Multiply(this Rectangle r, double scalar)
+        {
+            return new Rectangle((int)(r.X * scalar), (int)(r.Y * scalar), 
+                (int)(r.Width * scalar), (int)(r.Height * scalar));
         }
     }
 }
