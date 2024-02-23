@@ -202,21 +202,26 @@ namespace Voltorb_Flip.Calculator
                 using Bitmap top = screen.Clone(bounds, screenPixelFormat);
                 // Resize to reference size
                 double scale = (double)i / topLeftSelectedWidth;
-                using Bitmap resizedTop = top.ResizeWidth(1.0 / scale); // Invert Scale b/c its backwards
+                using Bitmap resizedTop = top.ResizeWidth(1.0 / scale); // Invert Scale to resize down
                 Size size = resizedTop.Size;
                 try
                 {
                     // Compare to Reference Top Rows
                     bool selected = ImageComparer.Compare(resizedTop, topRowSelected, tolerance, out Image diffSelected);
                     bool unselected = ImageComparer.Compare(resizedTop, topRowUnselected, tolerance, out Image diffUnselected);
-                    // Analyze Difference Images to determine whether they are within tolerance
-                    bool withinTolerance = VerifyToleranceRow((Bitmap)diffSelected) ||
-                        VerifyToleranceRow((Bitmap)diffUnselected);
                     try
                     {
-                        if (selected || unselected || withinTolerance)
+                        if (selected || unselected)
                         {
                             // Set Image Scale based on width of screen image
+                            _imageScale = scale;
+                            return true;
+                        }
+                        // Analyze Difference Images to determine whether they are within tolerance
+                        bool withinTolerance = VerifyToleranceRow((Bitmap)diffSelected) ||
+                            VerifyToleranceRow((Bitmap)diffUnselected);
+                        if (withinTolerance)
+                        {
                             _imageScale = scale;
                             return true;
                         }
@@ -248,7 +253,8 @@ namespace Voltorb_Flip.Calculator
             int height = (int)(topLeftSelectedHeight * _imageScale + 0.5);
 
             // Check to see if whole board is on screen
-            if (width * 6 > screenWidth || height * 6 > screenHeight) return false;
+            if (_startX + width * 6 > screenWidth || _startY + height * 6 > screenHeight)
+                return false;
 
             // Take corner area
             Rectangle bounds = new(_startX, _startY, width, height);
@@ -567,22 +573,25 @@ namespace Voltorb_Flip.Calculator
             int cardWidth = (int)(cardTotalWidth - IMAGE_MARGIN_FRACTION * cardTotalWidth * 2 + 0.5);
             int cardHeight = (int)(cardTotalHeight - IMAGE_MARGIN_FRACTION * cardTotalHeight * 2 + 0.5);
             // Width and height between cards
-            int width = (int)(topLeftSelectedWidth * _imageScale + 0.5); // Image Scale will always scale to an integer
-            int height = (int)(topLeftSelectedHeight * _imageScale + 0.5); // Round properly just in case
+            // There's a 0.5 pixel offset for each card for some reason ???
+            int widthBetween = (int)((topLeftSelectedWidth + 0.5) * _imageScale + 0.5); // Image Scale will always scale to an integer
+            int heightBetween = (int)((topLeftSelectedHeight + 0.5) * _imageScale + 0.5); // Round properly just in case
+            // Width and Height of Cards
+            int cardWidthScaled = (int)(cardTotalWidth * _imageScale + 0.5);
+            int cardHeightScaled = (int)(cardTotalHeight * _imageScale + 0.5);
             // Iterate over 5x5 board of cards
             for (int r = 0; r < 6; r++)
             {
                 for (int c = 0; c < 6; c++)
                 {
                     // Distance between cards is width of Top Left Reference Image
-                    // Add 1 to width and height because it's 1 off ???
-                    int x = _startX + c * (width + 1);
-                    int y = _startY + r * (height + 1);
+                    int x = _startX + c * widthBetween;
+                    int y = _startY + r * heightBetween;
 
-                    Rectangle cardBounds = new(x, y, width, height);
+                    Rectangle cardBounds = new(x, y, cardWidthScaled, cardHeightScaled);
                     using Bitmap card = screen.Clone(cardBounds, screenPixelFormat);
                     // Resize card bitmap to reference size
-                    using Bitmap resizedCard = card.Resize(1.0 / _imageScale); // Invert Scale b/c its backwards
+                    using Bitmap resizedCard = card.Resize(1.0 / _imageScale); // Invert Scale to resize down
 
                     if (r < 5 && c < 5)
                     {
