@@ -723,9 +723,9 @@ namespace Voltorb_Flip.Calculator
                 if (CompareNumber(bitmap, numberBitmaps[i], black, tolerateSize))
                     return i;
             }
-            // If not found, just return 5 cuz why not :D
+            // If not found, just return 0 cuz why not :D
             DebugLog("Number not found");
-            return 5;
+            return 0;
         }
 
         /// <summary>
