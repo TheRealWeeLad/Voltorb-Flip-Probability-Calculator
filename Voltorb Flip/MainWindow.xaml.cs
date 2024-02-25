@@ -24,6 +24,9 @@ using Windows.Devices.Display;
 
 using Voltorb_Flip.Calculator;
 using System.Drawing.Imaging;
+using Windows.ApplicationModel.VoiceCommands;
+using Windows.ApplicationModel.Activation;
+using Microsoft.UI;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -37,10 +40,13 @@ namespace Voltorb_Flip
     {
         // Constants
         const int CARD_SIZE = 88;
+        const int CARD_BORDER_THICKNESS = 5;
         readonly BitmapImage HIDDEN_IMAGE = new(new Uri("ms-appx:///Assets/card-hidden.png"));
+        readonly BitmapImage VOLTORB_IMAGE = new(new Uri("ms-appx:///Assets/voltorb.png"));
 
         readonly ProbabilityCalculator calculator;
         public readonly BitmapImage[] voltorbImages;
+        readonly List<List<Canvas>> cardCanvases = new();
 
         bool _calibrated = false;
 
@@ -83,7 +89,10 @@ namespace Voltorb_Flip
         // Update onscreen board with internal game state values
         public void UpdateBoard()
         {
-            ushort[,] board = calculator.GameBoard;
+            byte[,] board = calculator.GameBoard;
+
+            // Reset list of card images
+            if (cardCanvases.Count > 0) cardCanvases.Clear();
 
             // Initialize Board with 5 rows and 5 columns
             for (int r = 1; r <= 6; r++)
@@ -92,6 +101,7 @@ namespace Voltorb_Flip
                 Grid row = GridObj.FindName("Row" + r) as Grid ?? throw new Exception(string.Format("Row{0} not found", r));
                 // Reset children if there are any
                 if (row.Children.Count > 0) row.Children.Clear();
+                cardCanvases.Add(new());
 
                 for (int c = 0; c <= 5; c++)
                 {
@@ -112,21 +122,81 @@ namespace Voltorb_Flip
                         sourceImage = voltorbImages[voltorbIdx];
                     }
 
-                    Canvas canvas = new();
+                    Canvas canvas = new()
+                    {
+                        Margin = new Thickness(CARD_SIZE / 2, 0, 0, CARD_SIZE / 2)
+                    };
                     Microsoft.UI.Xaml.Controls.Image hiddenCardImg = new()
                     {
-                        Margin = new Thickness(CARD_SIZE / 2, 0, 0, CARD_SIZE / 2),
                         Width = CARD_SIZE,
                         Height = CARD_SIZE,
                         HorizontalAlignment = HorizontalAlignment.Center,
                         Source = sourceImage
                     };
-                    canvas.Children.Add(hiddenCardImg);
+                    Border border = new()
+                    {
+                        Child = hiddenCardImg,
+                        BorderThickness = new(CARD_BORDER_THICKNESS)
+                    };
+                    canvas.Children.Add(border);
+                    if (c < 5 && r < 6)
+                    {
+                        // Add Darkening overlay
+                        Microsoft.UI.Xaml.Shapes.Rectangle darkRect = new()
+                        {
+                            Fill = new SolidColorBrush(Colors.Black),
+                            Opacity = 0.5,
+                            Width = CARD_SIZE,
+                            Height = CARD_SIZE,
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            Margin = new(CARD_BORDER_THICKNESS, CARD_BORDER_THICKNESS, 0, 0)
+                        };
+                        canvas.Children.Add(darkRect);
+                    }
                     Grid.SetColumn(canvas, c);
-
+                    cardCanvases[r - 1].Add(canvas);
                     row.Children.Add(canvas);
                 }
             }
+        }
+
+        // Update onscreen board with calculated values
+        public void UpdateCalculations()
+        {
+            for (int i = 0; i < 5; i++)
+            {
+                for (int j = 0; j < 5; j++)
+                {
+                    List<byte> possibleVals = calculator.PossibleValues[i, j];
+                    
+                    if (!possibleVals.Contains(0))
+                    {
+                        // Add border to card image to signify that it is safe
+                        AddBorder(i, j, safe: true);
+                    }
+                    else if (possibleVals.Count == 1 && possibleVals[0] == 0)
+                    {
+                        // Add border to signify that it is NOT safe
+                        AddBorder(i, j, safe: false);
+                        // Replace Card image with Voltorb
+                        ((cardCanvases[i][j].Children[0] as Border).Child as
+                            Microsoft.UI.Xaml.Controls.Image).Source = VOLTORB_IMAGE;
+                        continue;
+                    }
+
+                    // Display Possible Values in Square
+
+                }
+            }
+        }
+
+        // Adds a border to the specified card to signify that it is either safe or unsafe
+        void AddBorder(int row, int col, bool safe)
+        {
+            Border cardBorder = cardCanvases[row][col].Children[0] as Border;
+
+            Windows.UI.Color borderColor = safe ? Colors.LimeGreen : Colors.Red;
+            cardBorder.BorderBrush = new SolidColorBrush(borderColor);
         }
 
         // UI Thread
