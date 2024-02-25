@@ -643,6 +643,10 @@ namespace Voltorb_Flip.Calculator
             screen.Dispose();
             // Update the board in the window on the UI thread
             window.DispatcherQueue.TryEnqueue(() => window.UpdateBoard());
+            // Calculate what's behind the unkown cards
+            CalculateUnknowns();
+            // Update board based on calculated values on UI thread
+            window.DispatcherQueue.TryEnqueue(() => window.UpdateCalculations());
         }
 
         /// <summary>
