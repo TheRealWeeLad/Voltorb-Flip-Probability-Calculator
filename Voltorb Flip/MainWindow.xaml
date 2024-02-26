@@ -57,7 +57,7 @@
                 x:Name="DebugText" Grid.Column="0"
                 HorizontalAlignment="Center" FontSize="25">DEBUG</TextBlock>
             <Image x:Name="DebugImg" Grid.Column="1" HorizontalAlignment="Center"
-                Height="100" Width="100" Source="Assets/Square150x150Logo.scale-200.png"></Image>
+                Height="100" Width="100" Source="Assets/Square150x150Logo.scale-200.png"/>
         </Grid>
     </Grid>
 </Window>
