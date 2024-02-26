@@ -43,8 +43,11 @@ namespace Voltorb_Flip
         const int CARD_BORDER_THICKNESS = 5;
         readonly BitmapImage HIDDEN_IMAGE = new(new Uri("ms-appx:///Assets/card-hidden.png"));
         readonly BitmapImage VOLTORB_IMAGE = new(new Uri("ms-appx:///Assets/voltorb.png"));
+        readonly Thickness HUNDRED_MARGIN = new(12, 27, 0, 0);
+        readonly Thickness TWO_DIGIT_MARGIN = new(20, 27, 0, 0);
+        readonly Thickness ONE_DIGIT_MARGIN = new(30, 27, 0, 0);
 
-        readonly ProbabilityCalculator calculator;
+        ProbabilityCalculator calculator;
         public readonly BitmapImage[] voltorbImages;
         readonly List<List<Canvas>> cardCanvases = new();
 
@@ -112,8 +115,10 @@ namespace Voltorb_Flip
                     BitmapImage sourceImage;
                     if (c < 5 && r < 6)
                     {
-                        if (board[r - 1, c] == 0) sourceImage = HIDDEN_IMAGE;
-                        else sourceImage = new(new Uri(string.Format("ms-appx:///Assets/flipped-{0}-highres.png", board[r - 1, c])));
+                        if (board[r - 1, c] == 4 || board[r - 1, c] == 0)
+                            sourceImage = HIDDEN_IMAGE;
+                        else
+                            sourceImage = new(new Uri(string.Format("ms-appx:///Assets/flipped-{0}-highres.png", board[r - 1, c])));
                     } 
                     else
                     {
@@ -152,7 +157,45 @@ namespace Voltorb_Flip
                             Margin = new(CARD_BORDER_THICKNESS, CARD_BORDER_THICKNESS, 0, 0)
                         };
                         canvas.Children.Add(darkRect);
+                        // Add numbers to corners for possibilities and center for probabilities
+                        Canvas numberContainer = new();
+                        TextBlock probText = new()
+                        {
+                            FontSize = 30,
+                            Foreground = new SolidColorBrush(Colors.Lime)
+                        };
+                        Border probBorder = new()
+                        {
+                            Child = probText,
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Margin = HUNDRED_MARGIN
+                        };
+                        canvas.Children.Add(probBorder);
+
+                        Thickness[] margins = { new(CARD_SIZE - 20, CARD_SIZE - 35, 0, 0), new(13, 5, 0, 0),
+                            new(CARD_SIZE - 20, 5, 0, 0), new(13, CARD_SIZE - 35, 0, 0) };
+                        for (int i = 0; i < 4; i++)
+                        {
+                            SolidColorBrush textColor = i == 0 ? new(Colors.Red)
+                                : new(Colors.LightBlue);
+                            TextBlock text = new()
+                            {
+                                FontSize = 25,
+                                Foreground = textColor
+                            };
+                            Border textBorder = new()
+                            {
+                                Child = text,
+                                HorizontalAlignment = HorizontalAlignment.Center,
+                                VerticalAlignment = VerticalAlignment.Top,
+                                Margin = margins[i]
+                            };
+                            numberContainer.Children.Add(textBorder);
+                        }
+                        canvas.Children.Add(numberContainer);
                     }
+                    
                     Grid.SetColumn(canvas, c);
                     cardCanvases[r - 1].Add(canvas);
                     row.Children.Add(canvas);
@@ -167,36 +210,69 @@ namespace Voltorb_Flip
             {
                 for (int j = 0; j < 5; j++)
                 {
+                    Canvas cardCanvas = cardCanvases[i][j];
+
+                    if (calculator.GameBoard[i, j] != 4)
+                    {
+                        // If we already have this square flipped, get rid of
+                        // borders, possibilities and probabilities
+                        ((cardCanvas.Children[2] as Border).Child
+                            as TextBlock).Text = "";
+
+                        Canvas possibilityContainer = cardCanvas.Children[3] as Canvas;
+                        for (int n = 0; n < 4; n++)
+                        {
+                            ((possibilityContainer.Children[n] as Border).Child as
+                                TextBlock).Text = "";
+                        }
+
+                        RemoveBorder(cardCanvas);
+
+                        continue;
+                    }
+
                     List<byte> possibleVals = calculator.PossibleValues[i, j];
-                    
+
                     if (!possibleVals.Contains(0))
                     {
                         // Add border to card image to signify that it is safe
-                        AddBorder(i, j, safe: true);
+                        AddBorder(cardCanvas, safe: true);
                     }
                     else if (possibleVals.Count == 1 && possibleVals[0] == 0)
                     {
                         // Add border to signify that it is NOT safe
-                        AddBorder(i, j, safe: false);
+                        AddBorder(cardCanvas, safe: false);
                         // Replace Card image with Voltorb
-                        ((cardCanvases[i][j].Children[0] as Border).Child as
+                        ((cardCanvas.Children[0] as Border).Child as
                             Microsoft.UI.Xaml.Controls.Image).Source = VOLTORB_IMAGE;
                         continue;
                     }
 
                     // Display Possible Values in Square
-
+                    Canvas numContainer = cardCanvas.Children[3] as Canvas;
+                    for (byte n = 0; n < 4; n++)
+                    {
+                        TextBlock numText = (numContainer.Children[n] as Border).Child as TextBlock;
+                        if (possibleVals.Contains(n))
+                            numText.Text = n == 0 ? "V" : n.ToString();
+                    }
                 }
             }
         }
 
         // Adds a border to the specified card to signify that it is either safe or unsafe
-        void AddBorder(int row, int col, bool safe)
+        static void AddBorder(Canvas cardCanvas, bool safe)
         {
-            Border cardBorder = cardCanvases[row][col].Children[0] as Border;
+            Border cardBorder = cardCanvas.Children[0] as Border;
 
             Windows.UI.Color borderColor = safe ? Colors.LimeGreen : Colors.Red;
             cardBorder.BorderBrush = new SolidColorBrush(borderColor);
+        }
+        // Removes a border from the specified card
+        static void RemoveBorder(Canvas cardCanvas)
+        {
+            Border cardBorder = cardCanvas.Children[0] as Border;
+            cardBorder.BorderBrush = null;
         }
 
         // UI Thread
@@ -207,6 +283,9 @@ namespace Voltorb_Flip
 
             // Cancel any currently running game
             GameLoopCanceler.Cancel();
+
+            // Initialize New Calculator
+            calculator = new(this);
 
             // Animate Text Box while Calibrating
             AnimateCanceler.Reset();
@@ -289,8 +368,6 @@ namespace Voltorb_Flip
                     }
                 }
             });
-
-            
         }
 
         // Background Thread
@@ -308,6 +385,7 @@ namespace Voltorb_Flip
         async void CaptureAndScan()
         {
             Bitmap screenBitmap = await CaptureScreen();
+            calculator.ResetBoard();
             calculator.ScanBoard(screenBitmap);
         }
 

@@ -609,7 +609,7 @@ namespace Voltorb_Flip.Calculator
                                 GameBoard[r, c] = 2;
                             else if (Compare(croppedCard, flippedThree, tolerateSize: true, strict: true, tolerateBrightness: true))
                                 GameBoard[r, c] = 3;
-                            else GameBoard[r, c] = 0;
+                            else GameBoard[r, c] = 4;
                         }
                         catch (InvalidOperationException)
                         {
@@ -644,6 +644,7 @@ namespace Voltorb_Flip.Calculator
             // Update the board in the window on the UI thread
             window.DispatcherQueue.TryEnqueue(() => window.UpdateBoard());
             // Calculate what's behind the unkown cards
+            FillInKnownValues();
             CalculateUnknowns();
             // Update board based on calculated values on UI thread
             window.DispatcherQueue.TryEnqueue(() => window.UpdateCalculations());
@@ -713,7 +714,7 @@ namespace Voltorb_Flip.Calculator
                 voltorbNum = CompareAllNumbers(voltorbNumBitmap);
 
             // Update Game Board Values
-            VoltorbBoard[row, idx] = new Point(points1 * 10 + points2, voltorbNum);
+            VoltorbBoard[row, idx] = new Triple(points1 * 10 + points2, voltorbNum, 5);
 
             return new ushort[] { points1, points2, voltorbNum };
         }
