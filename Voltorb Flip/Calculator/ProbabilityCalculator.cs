@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Runtime.InteropServices;
+using Windows.Services.Maps.Guidance;
 
 namespace Voltorb_Flip.Calculator
 {
@@ -75,6 +77,7 @@ namespace Voltorb_Flip.Calculator
                 }
         }
 
+        // TODO: MAKE NEW INTERNAL GAME BOARD FOR RECURSION
         public void CalculateUnknowns()
         {
             // Loop through VoltorbBoard list to find row/column information
@@ -169,7 +172,7 @@ namespace Voltorb_Flip.Calculator
                 }
             }
             // Recheck with updated GameBoard
-            //if (updated) CalculateUnknowns();
+            if (updated) CalculateUnknowns();
         }
 
         /// <summary>
@@ -230,10 +233,8 @@ namespace Voltorb_Flip.Calculator
 
         void AnalyzeCombinations(List<List<byte>> allCombinations, int i, int j, int totalPoints, int freeSquares)
         {
-            // 5 bit integer
-            byte twos = 0x00000;
-            byte threes = 0x00000;
-            int num2s = 0, num3s = 0;
+            // Each bit represents position in row/column
+            List<List<byte>> possibleVals = new();
             // Look through cards to find all occurrences of 2 and 3
             for (int n = 0; n < 5; n++)
             {
@@ -243,61 +244,33 @@ namespace Voltorb_Flip.Calculator
                 // Ignore flipped cards
                 if (GameBoard[row, col] != 4) continue;
 
-                List<byte> values = PossibleValues[row, col];
-
-                if (values.Contains(2))
-                {
-                    twos |= (byte)(1 << n);
-                    num2s++;
-                }
-                if (values.Contains(3))
-                {
-                    threes |= (byte)(1 << n);
-                    num3s++;
-                }
+                possibleVals.Add(PossibleValues[row, col]);
             }
 
             // Check Combinations for guaranteed values
-            byte guaranteed = 0x00000;
-            // Check each combination for the same number of 2s or 3s
-            foreach (List<byte> combination in allCombinations)
-            {
-                // Check if no guaranteed yet but the number of 2s matches
-                if (num2s == combination.Count(x => x == 2))
-                {
-                    if (guaranteed == 0)
-                        guaranteed = twos;
-                    // Otherwise, only shared positions are guaranteed
-                    else
-                        guaranteed &= twos;
-                }
-                // Check if no guaranteed yet but number of 3s matches
-                if (num3s == combination.Count(x => x == 3))
-                {
-                    if (guaranteed == 0)
-                        guaranteed = threes;
-                    else
-                        guaranteed &= threes;
-                }
-            }
+            List<List<byte>> matchingPositions = new();
+            // Check each combination for the matching combinations of possible values
+            for (int k = 0; k < allCombinations.Count; k++)
+                matchingPositions.AddRange(GetAllCombinations(possibleVals, allCombinations[k]));
+            
+            // Make sure there are some matching positions
+            if (matchingPositions.Count == 0) return;
+
+            // Only positions in every single combination are guaranteed to 
+            // be a number
+            List<byte> guaranteedPositions = GetCommonValue(matchingPositions);
 
             // Loop through cards again to update guaranteed cards
-            for (int n = 0; n < 5; n++)
+            foreach (byte position in guaranteedPositions)
             {
-                // Check if card is guaranteed
-                if ((guaranteed & (1 << n)) != 0)
-                {
-                    int row = i * n + (1 - i) * j;
-                    int col = (1 - i) * n + i * j;
+                int row = i * position + (1 - i) * j;
+                int col = (1 - i) * position + i * j;
 
-                    // Ignore flipped cards
-                    if (GameBoard[row, col] != 4) continue;
+                // Ignore flipped cards
+                if (GameBoard[row, col] != 4) continue;
 
-                    List<byte> values = PossibleValues[row, col];
-
-                    // Leave only 2 and 3 as options
-                    values.RemoveAll(x => x < 2);
-                }
+                // Remove Voltorb as an option
+                PossibleValues[row, col].Remove(0);
             }
         }
 
@@ -353,6 +326,85 @@ namespace Voltorb_Flip.Calculator
             }
         }
 
+        /// <summary>
+        /// Finds all values that exist in every <see cref="List{T}"/> within
+        /// another <see cref="List{T}"/>
+        /// </summary>
+        /// <typeparam name="T">The type of element within the <paramref name="values"/> list</typeparam>
+        /// <param name="values">The values to check</param>
+        /// <returns>A <see cref="List{T}"/> containing the common values</returns>
+        List<T> GetCommonValue<T>(List<List<T>> values)
+        {
+            List<T> result = values[0];
+
+            foreach (List<T> valueList in values)
+            {
+                // Check each value in result list to check if it is shared
+                foreach (T value in new List<T>(result))
+                {
+                    if (!valueList.Contains(value)) result.Remove(value);
+                }
+            }
+
+            return result;
+        }
+        /// <summary>
+        /// Find all combinations of the possible values provided in
+        /// <paramref name="values"/> that coincide with <paramref name="match"/>
+        /// </summary>
+        /// <param name="values">A <see cref="List{byte}"/> of all possible values
+        /// for each position in a row/column</param>
+        /// <param name="match">The <see cref="List{byte}"/> to compare against</param>
+        /// <returns>A <see cref="List{List{byte}}"/> of all combinations of positions
+        /// that create <paramref name="match"/></returns>
+        List<List<byte>> GetAllCombinations(List<List<byte>> values, List<byte> match)
+        {
+            List<List<byte>> combinations = new();
+
+            FindCombinations(values, combinations, new(), match, 0);
+
+            return combinations;
+        }
+        /// <summary>
+        /// Find all combinations of the possible values provided in
+        /// <paramref name="values"/> that coincide with <paramref name="match"/>
+        /// </summary>
+        /// <param name="values">The possible values for each card</param>
+        /// <param name="combinations">The list to add found combinations to</param>
+        /// <param name="temp">Temporary list that stores each combination</param>
+        /// <param name="match">The sequence to find a match for</param>
+        /// <param name="position">The position of the card in the sequence</param>
+        void FindCombinations(List<List<byte>> values, List<List<byte>> combinations, List<byte> temp, List<byte> match, byte position)
+        {
+            if (position == match.Count)
+            {
+                temp.Sort();
+                // Look for a copy of temp in combinations
+                foreach (List<byte> combo in combinations)
+                {
+                    if (combo.SequenceEqual(temp)) return;
+                }
+                combinations.Add(new List<byte>(temp));
+                return;
+            }
+
+            for (byte i = 0; i < values.Count; i++)
+            {
+                // No repeat values
+                if (temp.Contains(i)) continue;
+
+                List<byte> valueList = values[i];
+                foreach (byte value in valueList)
+                {
+                    if (value == match[position])
+                    {
+                        temp.Add(i);
+                        FindCombinations(values, combinations, temp, match, (byte)(position + 1));
+                        temp.Remove(i);
+                    }
+                }
+            }
+        }
         /// <summary>
         /// Find all combinations of 1s, 2s, and 3s of length <paramref name="numSquares"/>
         /// that sum to <paramref name="totalPoints"/>
