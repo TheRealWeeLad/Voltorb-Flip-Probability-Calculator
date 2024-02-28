@@ -644,6 +644,8 @@ namespace Voltorb_Flip.Calculator
             screen.Dispose();
             // Update the board in the window on the UI thread
             window.DispatcherQueue.TryEnqueue(() => window.UpdateBoard());
+            // Update Internal Board for Calcuations
+            InternalGameBoard = GameBoard.Clone() as byte[,];
             // Calculate what's behind the unkown cards
             FillInKnownValues();
             CalculateUnknowns();
