@@ -32,6 +32,7 @@ using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX.Direct3D11;
 using Windows.Security.Isolation;
 using Windows.Services.TargetedContent;
+using System.Collections;
 
 namespace Voltorb_Flip.Calculator
 {
@@ -810,6 +811,25 @@ namespace Voltorb_Flip.Calculator
         void DebugLog(object msg)
         {
             window.DispatcherQueue.TryEnqueue(() => window.DebugLog(msg));
+        }
+        void DebugList<T>(List<T> list)
+        {
+            string s = "";
+            foreach (T item in list)
+            {
+                if (item.GetType().IsGenericType && 
+                    item.GetType().GetGenericTypeDefinition() == typeof(List<>))
+                {
+                    IList iterable = (IList)item;
+                    foreach(var item2 in iterable)
+                    {
+                        s += item2.ToString() + ", ";
+                    }
+                    s = s[0..^2] + "\n";
+                }
+                else s += item.ToString() + ", ";
+            }
+            DebugLog(s);
         }
         void DebugImage(Bitmap bitmap)
         {
