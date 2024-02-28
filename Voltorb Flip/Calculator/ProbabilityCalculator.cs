@@ -2,14 +2,13 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using System.Runtime.InteropServices;
-using Windows.Services.Maps.Guidance;
 
 namespace Voltorb_Flip.Calculator
 {
     partial class ProbabilityCalculator
     {
-        public byte[,] GameBoard { get; } = new byte[5,5];
+        public byte[,] GameBoard { get; private set; } = new byte[5, 5];
+        byte[,] InternalGameBoard { get; set; } = new byte[5, 5];
         // X-value of Point represents point values per column, y-value is voltorb numbers
         Triple[,] VoltorbBoard { get; } = new Triple[2, 5]; // Row 1 is Vertical, 2 is Horizontal
         public List<byte>[,] PossibleValues { get; } = new List<byte>[5, 5];
@@ -60,6 +59,7 @@ namespace Voltorb_Flip.Calculator
                     GameBoard[i, j] = 4;
                     PossibleValues[i, j] = new();
                 }
+            InternalGameBoard = GameBoard.Clone() as byte[,];
         }
 
         /// <summary>
@@ -70,14 +70,13 @@ namespace Voltorb_Flip.Calculator
             for (int i = 0; i < 5; i++)
                 for (int j = 0; j < 5; j++)
                 {
-                    byte val = GameBoard[i, j];
+                    byte val = InternalGameBoard[i, j];
                     if (val == 4)
                         PossibleValues[i, j].AddRange(allPossible);
                     else PossibleValues[i, j].Add(val);
                 }
         }
 
-        // TODO: MAKE NEW INTERNAL GAME BOARD FOR RECURSION
         public void CalculateUnknowns()
         {
             // Loop through VoltorbBoard list to find row/column information
@@ -151,7 +150,7 @@ namespace Voltorb_Flip.Calculator
                     List<List<byte>> allCombinations = GetAllCombinations(points, freeSquares);
                     // Analyze differences between combinations to get more information
                     if (allCombinations.Count > 1)
-                        //AnalyzeCombinations(allCombinations, i, j, points, freeSquares);
+                        AnalyzeCombinations(allCombinations, i, j, points, freeSquares);
 
                     // Perform final voltorb sweep
                     VoltorbSweep(i, j, voltorbs);
@@ -164,10 +163,10 @@ namespace Voltorb_Flip.Calculator
             {
                 for (int c = 0; c < 5; c++)
                 {
-                    if (GameBoard[r, c] == 4 && PossibleValues[r, c].Count == 1)
+                    if (InternalGameBoard[r, c] == 4 && PossibleValues[r, c].Count == 1)
                     {
                         updated = true;
-                        GameBoard[r, c] = PossibleValues[r, c][0];
+                        InternalGameBoard[r, c] = PossibleValues[r, c][0];
                     }
                 }
             }
@@ -193,7 +192,7 @@ namespace Voltorb_Flip.Calculator
                 int col = (1 - i) * n + i * j;
 
                 // Ignore flipped cards
-                if (GameBoard[row, col] != 4) continue;
+                if (InternalGameBoard[row, col] != 4) continue;
 
                 List<byte> values = PossibleValues[row, col];
                 foreach (byte val in values)
@@ -217,7 +216,7 @@ namespace Voltorb_Flip.Calculator
                 int row = i * n + (1 - i) * j;
                 int col = (1 - i) * n + i * j;
 
-                if (GameBoard[row, col] != 4) continue;
+                if (InternalGameBoard[row, col] != 4) continue;
 
                 List<byte> values = PossibleValues[row, col];
                 for (byte idx = 1; idx < 4; idx++)
@@ -241,8 +240,8 @@ namespace Voltorb_Flip.Calculator
                 int row = i * n + (1 - i) * j;
                 int col = (1 - i) * n + i * j;
                 
-                // Ignore flipped cards
-                if (GameBoard[row, col] != 4) continue;
+                // Ignore known cards
+                if (InternalGameBoard[row, col] != 4) continue;
 
                 possibleVals.Add(PossibleValues[row, col]);
             }
@@ -267,7 +266,7 @@ namespace Voltorb_Flip.Calculator
                 int col = (1 - i) * position + i * j;
 
                 // Ignore flipped cards
-                if (GameBoard[row, col] != 4) continue;
+                if (InternalGameBoard[row, col] != 4) continue;
 
                 // Remove Voltorb as an option
                 PossibleValues[row, col].Remove(0);
@@ -292,7 +291,7 @@ namespace Voltorb_Flip.Calculator
                 int col = (1 - i) * n + i * j;
 
                 // Ignore flipped cards
-                if (GameBoard[row, col] != 4) continue;
+                if (InternalGameBoard[row, col] != 4) continue;
 
                 List<byte> values = PossibleValues[row, col];
 
@@ -311,7 +310,7 @@ namespace Voltorb_Flip.Calculator
                     int col = (1 - i) * n + i * j;
 
                     // Ignore flipped cards
-                    if (GameBoard[row, col] != 4) continue;
+                    if (InternalGameBoard[row, col] != 4) continue;
 
                     List<byte> values = PossibleValues[row, col];
 
@@ -335,7 +334,7 @@ namespace Voltorb_Flip.Calculator
         /// <returns>A <see cref="List{T}"/> containing the common values</returns>
         List<T> GetCommonValue<T>(List<List<T>> values)
         {
-            List<T> result = values[0];
+            List<T> result = new(values[0]);
 
             foreach (List<T> valueList in values)
             {
@@ -399,7 +398,7 @@ namespace Voltorb_Flip.Calculator
                     if (value == match[position])
                     {
                         temp.Add(i);
-                        FindCombinations(values, combinations, temp, match, (byte)(position + 1));
+                        FindCombinations(values, combinations, new List<byte>(temp), match, (byte)(position + 1));
                         temp.Remove(i);
                     }
                 }
@@ -478,7 +477,7 @@ namespace Voltorb_Flip.Calculator
                 int row = i * n + (1 - i) * j;
                 int col = (1 - i) * n + i * j;
 
-                int val = GameBoard[row, col];
+                int val = InternalGameBoard[row, col];
                 if (val != 4)
                 {
                     // We know this value, so remove these points from the total
@@ -504,7 +503,7 @@ namespace Voltorb_Flip.Calculator
                 int row = i * n + (1 - i) * j;
                 int col = (1 - i) * n + i * j;
                 // If we already know this position, just skip
-                if (GameBoard[row, col] != 4) continue;
+                if (InternalGameBoard[row, col] != 4) continue;
                 // Activate RuleAction on each card in the row/column
                 Func?.Invoke(row, col, vals);
             }
