@@ -11,7 +11,9 @@ namespace Voltorb_Flip.Calculator
         byte[,] InternalGameBoard { get; set; } = new byte[5, 5];
         // X-value of Point represents point values per column, y-value is voltorb numbers
         Triple[,] VoltorbBoard { get; } = new Triple[2, 5]; // Row 1 is Vertical, 2 is Horizontal
-        public List<byte>[,] PossibleValues { get; } = new List<byte>[5, 5];
+        Triple[,] InternalVoltorbBoard { get; set; } = new Triple[2, 5];
+        public List<byte>[,] PossibleValues { get; set; } = new List<byte>[5, 5];
+        List<byte>[,] LastPossibleValues { get; set; } = new List<byte>[5, 5];
         public byte[,] Probabilities { get; } = new byte[5, 5];
 
         readonly byte[] allPossible = { 0, 1, 2, 3 };
@@ -84,11 +86,12 @@ namespace Voltorb_Flip.Calculator
             {
                 for (int j = 0; j < 5; j++)
                 {
-                    VoltorbBoard[i, j] = UpdateKnownValues(i, j, VoltorbBoard[i, j]);
-                    Triple vals = VoltorbBoard[i, j];
+                    InternalVoltorbBoard[i, j] = UpdateKnownValues(i, j, VoltorbBoard[i, j]);
+                    Triple vals = InternalVoltorbBoard[i, j];
                     int points = vals.Points;
                     int voltorbs = vals.Voltorbs;
                     int numSquares = vals.Squares;
+                    int freeSquares = vals.Squares - voltorbs;
 
                     // Check Voltorb Count
                     RuleAction VoltorbRule = null;
@@ -110,18 +113,8 @@ namespace Voltorb_Flip.Calculator
 
                     // Check if points are too high for 1s
                     if (points >= 2 + (numSquares - 1) * 3) RuleTest(i, j, vals, No1s);
-                }
-            }
-            // Loop through VoltorbBoard again to perform final eliminations
-            for (int i = 0; i < 2; i++)
-            {
-                for (int j = 0; j < 5; j++)
-                {
-                    Triple vals = VoltorbBoard[i, j];
-                    int points = vals.Points;
-                    int voltorbs = vals.Voltorbs;
-                    int freeSquares = vals.Squares - voltorbs;
 
+                    // Perform final eliminations
                     // Check point values compared with voltorbs to determine how
                     // many 1s 2s and 3s there are in the row/column (minimum)
                     int num1s = 0;
@@ -135,18 +128,8 @@ namespace Voltorb_Flip.Calculator
                         num2s = 1;
 
                     EliminatePossibilities(i, j, num1s, num2s, num3s);
-                }
-            }
-            // Loop once again for Combination Analysis
-            for (int i = 0; i < 2; i++)
-            {
-                for (int j = 0; j < 5; j++)
-                {
-                    Triple vals = VoltorbBoard[i, j];
-                    int points = vals.Points;
-                    int voltorbs = vals.Voltorbs;
-                    int freeSquares = vals.Squares - voltorbs;
 
+                    // Combination Analysis
                     List<List<byte>> allCombinations = GetAllCombinations(points, freeSquares);
                     // Analyze differences between combinations to get more information
                     if (allCombinations.Count > 1)
@@ -158,11 +141,14 @@ namespace Voltorb_Flip.Calculator
             }
 
             // Update game board based on guaranteed values
+            // Update possibility board based on new information
             bool updated = false;
             for (int r = 0; r < 5; r++)
             {
                 for (int c = 0; c < 5; c++)
                 {
+                    if (PossibleValues[r, c] != LastPossibleValues[r, c])
+                        updated = true;
                     if (InternalGameBoard[r, c] == 4 && PossibleValues[r, c].Count == 1)
                     {
                         updated = true;
@@ -170,7 +156,9 @@ namespace Voltorb_Flip.Calculator
                     }
                 }
             }
-            // Recheck with updated GameBoard
+            // Store this recursion's possible values
+            LastPossibleValues = PossibleValues.Clone() as List<byte>[,];
+            // Recheck with updated GameBoard and PossibilityBoard
             if (updated) CalculateUnknowns();
         }
 
@@ -243,7 +231,10 @@ namespace Voltorb_Flip.Calculator
                 // Ignore known cards
                 if (InternalGameBoard[row, col] != 4) continue;
 
-                possibleVals.Add(PossibleValues[row, col]);
+                List<byte> value = new(PossibleValues[row, col]);
+                // Ignore voltorbs in combination matching
+                value.Remove(0);
+                possibleVals.Add(value);
             }
 
             // Check Combinations for guaranteed values
@@ -472,6 +463,7 @@ namespace Voltorb_Flip.Calculator
         /// <returns></returns>
         Triple UpdateKnownValues(int i, int j, Triple vals)
         {
+            Triple result = new(vals.Points, vals.Voltorbs, vals.Squares);
             for (int n = 0; n < 5; n++)
             {
                 int row = i * n + (1 - i) * j;
@@ -481,11 +473,12 @@ namespace Voltorb_Flip.Calculator
                 if (val != 4)
                 {
                     // We know this value, so remove these points from the total
-                    vals.Points -= val;
-                    vals.Squares--;
+                    result.Points -= val;
+                    if (val == 0) result.Voltorbs--;
+                    result.Squares--;
                 }
             }
-            return vals;
+            return result;
         }
 
         /// <summary>
