@@ -650,6 +650,7 @@ namespace Voltorb_Flip.Calculator
             // Calculate what's behind the unkown cards
             FillInKnownValues();
             CalculateUnknowns();
+            CalculateProbabilities();
             // Update board based on calculated values on UI thread
             window.DispatcherQueue.TryEnqueue(() => window.UpdateCalculations());
         }
