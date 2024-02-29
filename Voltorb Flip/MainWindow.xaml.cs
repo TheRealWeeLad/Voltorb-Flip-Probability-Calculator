@@ -29,9 +29,9 @@ namespace Voltorb_Flip
         const int CARD_BORDER_THICKNESS = 5;
         readonly BitmapImage HIDDEN_IMAGE = new(new Uri("ms-appx:///Assets/card-hidden.png"));
         readonly BitmapImage VOLTORB_IMAGE = new(new Uri("ms-appx:///Assets/voltorb.png"));
-        readonly Thickness HUNDRED_MARGIN = new(12, 27, 0, 0);
-        readonly Thickness TWO_DIGIT_MARGIN = new(20, 27, 0, 0);
-        readonly Thickness ONE_DIGIT_MARGIN = new(30, 27, 0, 0);
+        readonly Thickness HUNDRED_MARGIN = new(6, 14, 0, 0);
+        readonly Thickness TWO_DIGIT_MARGIN = new(15, 14, 0, 0);
+        readonly Thickness ONE_DIGIT_MARGIN = new(25, 14, 0, 0);
 
         ProbabilityCalculator calculator;
         public readonly BitmapImage[] voltorbImages;
@@ -217,6 +217,30 @@ namespace Voltorb_Flip
                         continue;
                     }
 
+                    // Display Probability of Safety
+                    float probability = calculator.Probabilities[i, j];
+                    TextBlock probabilityText = (cardCanvas.Children[2]
+                        as Border).Child as TextBlock;
+                    byte roundedProbability = (byte)(probability * 100 + 0.5f);
+                    // Never round to 100
+                    if (roundedProbability == 100 && probability < 1)
+                        roundedProbability -= 1;
+
+                    // Set margins
+                    Thickness probMargin = HUNDRED_MARGIN;
+                    if (roundedProbability < 10) probMargin = ONE_DIGIT_MARGIN;
+                    else if (roundedProbability < 100) probMargin = TWO_DIGIT_MARGIN;
+
+                    // Make color gradient from 0 to 100
+                    byte red = (byte)(0xff * (1 - MathF.Max(0, 2 * (probability - 0.5f))));
+                    byte green = (byte)(0xff * MathF.Min(1, 2 * probability));
+                    Windows.UI.Color color = Windows.UI.Color.FromArgb(255, red, green, 0);
+
+                    probabilityText.Text = roundedProbability.ToString() + "%";
+                    probabilityText.Margin = probMargin;
+                    probabilityText.Foreground = new SolidColorBrush(color);
+
+                    // Display all possibilities
                     List<byte> possibleVals = calculator.PossibleValues[i, j];
 
                     if (!possibleVals.Contains(0))
