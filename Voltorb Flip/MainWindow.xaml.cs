@@ -1,31 +1,17 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Navigation;
 using Microsoft.UI.Xaml.Media.Imaging;
 using System;
 using System.Threading;
 using System.Drawing;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
-using Windows.Devices.PointOfService.Provider;
-using Windows.UI.Core;
-using Windows.Foundation.Collections;
 using System.Threading.Tasks;
-using Windows.ApplicationModel.Core;
 using Windows.Graphics.Capture;
 using Windows.Devices.Enumeration;
 using Windows.Devices.Display;
 
 using Voltorb_Flip.Calculator;
-using System.Drawing.Imaging;
-using Windows.ApplicationModel.VoiceCommands;
-using Windows.ApplicationModel.Activation;
 using Microsoft.UI;
 
 // To learn more about WinUI, the WinUI project structure,
