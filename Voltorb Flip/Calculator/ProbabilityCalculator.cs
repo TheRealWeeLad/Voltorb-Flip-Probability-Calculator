@@ -14,7 +14,7 @@ namespace Voltorb_Flip.Calculator
         Triple[,] InternalVoltorbBoard { get; set; } = new Triple[2, 5];
         public List<byte>[,] PossibleValues { get; set; } = new List<byte>[5, 5];
         List<byte>[,] LastPossibleValues { get; set; } = new List<byte>[5, 5];
-        public byte[,] Probabilities { get; } = new byte[5, 5];
+        public float[,] Probabilities { get; } = new float[5, 5];
 
         readonly byte[] allPossible = { 0, 1, 2, 3 };
 
@@ -163,6 +163,38 @@ namespace Voltorb_Flip.Calculator
             LastPossibleValues = PossibleValues.Clone() as List<byte>[,];
             // Recheck with updated GameBoard and PossibilityBoard
             if (updated) CalculateUnknowns();
+        }
+
+        public void CalculateProbabilities()
+        {
+            // Iterate over VoltorbBoard
+            for (int i = 0; i < 2; i++)
+            {
+                if (i == 1) continue;
+
+                for (int j = 0; j < 5; j++)
+                {
+                    Triple vals = InternalVoltorbBoard[i, j];
+                    int points = vals.Points;
+                    int voltorbs = vals.Voltorbs;
+                    int numSquares = vals.Squares;
+                    int freeSquares = vals.Squares - voltorbs;
+
+                    // Get combinations of point values
+                    List<List<byte>> combinations = GetAllCombinations(points, freeSquares);
+
+                    for (int n = 0; n < 5; n++)
+                    {
+                        int row = i * n + (1 - i) * j;
+                        int col = (1 - i) * n + i * j;
+
+                        // Ignore known squares
+                        if (InternalGameBoard[row, col] != 4) continue;
+
+                        // CALCULATE PROBABILITY ???
+                    }
+                }
+            }
         }
 
         /// <summary>
