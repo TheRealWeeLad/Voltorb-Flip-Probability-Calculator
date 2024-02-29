@@ -79,7 +79,10 @@ namespace Voltorb_Flip.Calculator
                 }
         }
 
-        public void CalculateUnknowns()
+        /// <summary>
+        /// Go through PossibleValues and VoltorbBoard to eliminate possibilities
+        /// </summary>
+        void CalculateUnknowns()
         {
             // Loop through VoltorbBoard list to find row/column information
             for (int i = 0; i < 2; i++)
@@ -218,6 +221,18 @@ namespace Voltorb_Flip.Calculator
             }
         }
 
+        /// <summary>
+        /// Analyze the possible combinations of point values that sum to the needed
+        /// total value to figure out which squares MUST be points in order to achieve
+        /// the desired sum
+        /// </summary>
+        /// <param name="allCombinations"><see cref="List{T}"/> of all possible 
+        /// combinations of point values</param>
+        /// <param name="i">The row of the VoltorbBoard</param>
+        /// <param name="j">The index of the voltorb card within its row/column</param>
+        /// <param name="totalPoints">Total number of points we need to achieve</param>
+        /// <param name="freeSquares">How many squares are left for points to be in 
+        /// (number of squares - number of voltorbs)</param>
         void AnalyzeCombinations(List<List<byte>> allCombinations, int i, int j, int totalPoints, int freeSquares)
         {
             // Each bit represents position in row/column
