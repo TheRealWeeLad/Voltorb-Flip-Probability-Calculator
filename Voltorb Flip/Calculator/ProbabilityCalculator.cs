@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using Windows.ApplicationModel.AppExtensions;
 
 namespace Voltorb_Flip.Calculator
 {
@@ -15,10 +16,15 @@ namespace Voltorb_Flip.Calculator
         public List<byte>[,] PossibleValues { get; set; } = new List<byte>[5, 5];
         List<byte>[,] LastPossibleValues { get; set; } = new List<byte>[5, 5];
         public float[,] Probabilities { get; } = new float[5, 5];
+        // (2, 3, V) that have already been found
+        (int, int, int) currentFoundValues = new();
+        List<(int, int, int)> currentPossibleBoards = new();
 
         readonly byte[] allPossible = { 0, 1, 2, 3 };
 
         record struct Triple(int Points, int Voltorbs, int Squares);
+
+        public static int CurrentLevel { get; set; } = 1;
 
         public ProbabilityCalculator(MainWindow window)
         {
@@ -41,7 +47,7 @@ namespace Voltorb_Flip.Calculator
             voltorbBitmaps = new Bitmap[10];
             for (int i = 0; i < 10; i++)
             {
-                voltorbBitmaps[i] = Image.FromFile(string.Format(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\voltorb{0}.png",
+                voltorbBitmaps[i] = System.Drawing.Image.FromFile(string.Format(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\voltorb{0}.png",
                     i + 1)) as Bitmap;
             }
 
@@ -62,6 +68,8 @@ namespace Voltorb_Flip.Calculator
                     PossibleValues[i, j] = new();
                 }
             InternalGameBoard = GameBoard.Clone() as byte[,];
+            currentFoundValues = new();
+            currentPossibleBoards = new(PossibleBoards[CurrentLevel - 1]);
         }
 
         /// <summary>
@@ -134,6 +142,9 @@ namespace Voltorb_Flip.Calculator
 
                     // Combination Analysis
                     List<List<byte>> allCombinations = GetAllCombinations(points, freeSquares);
+                    // Eliminate impossible combinations
+                    foreach(List<byte> combo in new List<List<byte>>(allCombinations))
+                        if (!IsCombinationPossible(combo)) allCombinations.Remove(combo);
                     // Analyze differences between combinations to get more information
                     if (allCombinations.Count > 1)
                         AnalyzeCombinations(allCombinations, i, j, points, freeSquares);
@@ -143,56 +154,146 @@ namespace Voltorb_Flip.Calculator
                 }
             }
 
+            // Recheck with updated GameBoard and PossibilityBoard
+            if (UpdateInformation()) CalculateUnknowns();
+        }
+
+        // TODO: FIX BOARD POSSIBILITY CHECKS
+        /// <summary>
+        /// Updates InternalGameBoard and currentPossibleBoards based on calculated
+        /// information
+        /// </summary>
+        /// <returns>True if information was updated, False otherwise</returns>
+        bool UpdateInformation()
+        {
             // Update game board based on guaranteed values
             // Update possibility board based on new information
             bool updated = false;
+            int poss2s = 0;
+            int poss3s = 0;
+            int possVs = 0;
+            currentFoundValues = new();
             for (int r = 0; r < 5; r++)
             {
                 for (int c = 0; c < 5; c++)
                 {
-                    if (PossibleValues[r, c] != LastPossibleValues[r, c])
+                    List<byte> vals = PossibleValues[r, c];
+                    if (vals.Contains(2)) poss2s++;
+                    if (vals.Contains(3)) poss3s++;
+                    if (vals.Contains(0)) possVs++;
+
+                    if (vals != LastPossibleValues[r, c])
                         updated = true;
-                    if (InternalGameBoard[r, c] == 4 && PossibleValues[r, c].Count == 1)
+
+                    byte val = InternalGameBoard[r, c];
+                    if (val == 4 && vals.Count == 1)
                     {
                         updated = true;
-                        InternalGameBoard[r, c] = PossibleValues[r, c][0];
+                        InternalGameBoard[r, c] = vals[0];
                     }
+                    if (val == 2) currentFoundValues.Item1++;
+                    else if (val == 3) currentFoundValues.Item2++;
+                    else if (val == 0) currentFoundValues.Item3++;
                 }
             }
             // Store this recursion's possible values
             LastPossibleValues = PossibleValues.Clone() as List<byte>[,];
-            // Recheck with updated GameBoard and PossibilityBoard
-            if (updated) CalculateUnknowns();
+            // Update possible boards this level
+            foreach ((int, int, int) board in new List<(int, int, int)>(currentPossibleBoards))
+            {
+                // If we've found more 2s, 3s, or Vs than is possible in this board
+                // OR there aren't enough 2s, 3s, or Vs for the board to be possible
+                if (board.Item1 < currentFoundValues.Item1 ||
+                    board.Item2 < currentFoundValues.Item2 ||
+                    board.Item3 < currentFoundValues.Item3 ||
+                    poss2s < board.Item1 ||
+                    poss3s < board.Item2 ||
+                    possVs < board.Item3)
+                {
+                    updated = true;
+                    // Remove this possibility
+                    currentPossibleBoards.Remove(board);
+                }
+            }
+
+            return updated;
         }
 
-        public void CalculateProbabilities()
+        /// <summary>
+        /// Calculate the probability that each square in the board is safe by crosschecking all possible boards
+        /// </summary>
+        void CalculateProbabilities()
         {
-            // Iterate over VoltorbBoard
-            for (int i = 0; i < 2; i++)
+            // Look through PossibleValues to find all possible 2s, 3s, and Vs
+            int num2s = 0;
+            int num3s = 0;
+            int numVs = 0;
+            for (int r = 0; r < 5; r++)
             {
-                if (i == 1) continue;
-
-                for (int j = 0; j < 5; j++)
+                for (int c = 0; c < 5; c++)
                 {
-                    Triple vals = InternalVoltorbBoard[i, j];
-                    int points = vals.Points;
-                    int voltorbs = vals.Voltorbs;
-                    int numSquares = vals.Squares;
-                    int freeSquares = vals.Squares - voltorbs;
+                    // Ignore known squares
+                    if (InternalGameBoard[r, c] != 4) continue;
 
-                    // Get combinations of point values
-                    List<List<byte>> combinations = GetAllCombinations(points, freeSquares);
+                    List<byte> values = PossibleValues[r, c];
+                    if (values.Contains(2)) num2s++;
+                    if (values.Contains(3)) num3s++;
+                    if (values.Contains(0)) numVs++;
+                }
+            }
 
-                    for (int n = 0; n < 5; n++)
+            // Loop through it again to determine probabilities
+            for (int r = 0; r < 5; r++)
+            {
+                for (int c = 0; c < 5; c++)
+                {
+                    List<byte> values = PossibleValues[r, c];
+
+                    // Ignore Flipped Squares
+                    if (GameBoard[r, c] != 4) continue;
+
+                    // If no voltorb, 100% safe
+                    if (!values.Contains(0))
                     {
-                        int row = i * n + (1 - i) * j;
-                        int col = (1 - i) * n + i * j;
-
-                        // Ignore known squares
-                        if (InternalGameBoard[row, col] != 4) continue;
-
-                        // CALCULATE PROBABILITY ???
+                        Probabilities[r, c] = 1;
+                        continue;
                     }
+                    // If only voltorb, 0% safe
+                    if (values.Count == 0 && values[0] == 0)
+                    {
+                        Probabilities[r, c] = 0;
+                        continue;
+                    }
+
+                    float prob2 = 0;
+                    float prob3 = 0;
+                    float probV = 1;
+                    float totalProb2 = 0;
+                    float totalProb3 = 0;
+                    float totalProbV = 0;
+
+                    if (values.Contains(2)) prob2 = 1;
+                    if (values.Contains(3)) prob3 = 1;
+
+                    // Look at all possible boards to determine probabilities
+                    int numBoards = currentPossibleBoards.Count;
+                    foreach ((int, int, int) board in currentPossibleBoards)
+                    {
+                        // Probability = # Combinations with 2 in this position / # Combinations
+                        // Numerator = (num2s - 1) CHOOSE (num2sInBoard - 1)
+                        // Denominator = (num2s) CHOOSE (num2sInBoard)
+                        // Simplifies to num2sInBoard / num2s
+                        if (num2s != 0)
+                            totalProb2 += prob2 * board.Item1 / num2s / numBoards;
+                        if (num3s != 0)
+                            totalProb3 += prob3 * board.Item2 / num3s / numBoards;
+                        if (numVs != 0)
+                            totalProbV += probV * board.Item3 / numVs / numBoards;
+                    }
+
+                    if (prob2 == 0 && prob3 == 0)
+                        Probabilities[r, c] = totalProbV;
+                    else Probabilities[r, c] = totalProb2 + totalProb3;
                 }
             }
         }
@@ -278,10 +379,20 @@ namespace Voltorb_Flip.Calculator
                 // Ignore known cards
                 if (InternalGameBoard[row, col] != 4) continue;
 
-                List<byte> value = new(PossibleValues[row, col]);
+                // Check if values in this position are possible based on allCombinations
+                List<byte> value = PossibleValues[row, col];
+                foreach (byte val in value)
+                {
+                    if (val == 0) continue;
+                    // If value is not present in any combination, it is not possible
+                    if (allCombinations.All(combo => !combo.Contains(val)))
+                        value.Remove(val);
+                }
+
+                List<byte> valueCopy = new(value);
                 // Ignore voltorbs in combination matching
-                value.Remove(0);
-                possibleVals.Add(value);
+                valueCopy.Remove(0);
+                possibleVals.Add(valueCopy);
             }
 
             // Check Combinations for guaranteed values
@@ -328,7 +439,7 @@ namespace Voltorb_Flip.Calculator
                 int row = i * n + (1 - i) * j;
                 int col = (1 - i) * n + i * j;
 
-                // Ignore flipped cards
+                // Ignore known cards
                 if (InternalGameBoard[row, col] != 4) continue;
 
                 List<byte> values = PossibleValues[row, col];
@@ -498,6 +609,31 @@ namespace Voltorb_Flip.Calculator
                 temp.Remove(i);
             }
         }
+        /// <summary>
+        /// Checks a certain combination of 1s, 2s, and 3s to determine whether
+        /// there are enough 2s and 3s left in the current level for the combination
+        /// to be possible
+        /// </summary>
+        /// <param name="combination">The combination to check</param>
+        /// <returns>True if it is possible, False if not</returns>
+        bool IsCombinationPossible(List<byte> combination)
+        {
+            int num2s = combination.Count(x => x == 2);
+            int num3s = combination.Count(x => x == 3);
+            bool twoSafe = false;
+            bool threeSafe = false;
+
+            foreach ((int, int, int) values in currentPossibleBoards)
+            {
+                // Combination must have too many 2s or 3s for all possible boards
+                int twosLeft = values.Item1 - currentFoundValues.Item1;
+                if (num2s <= twosLeft) twoSafe = true;
+                int threesLeft = values.Item2 - currentFoundValues.Item2;
+                if (num3s <= threesLeft) threeSafe = true;
+            }
+
+            return twoSafe && threeSafe;
+        }
 
         /// <summary>
         /// Update the points, voltorbs, and number of squares at the specific
@@ -602,6 +738,27 @@ namespace Voltorb_Flip.Calculator
         {
             // Remove 1s
             PossibleValues[row, col].Remove(1);
+        }
+        
+
+        // Helper Functions
+        /// <summary>
+        /// Computes the factorial(!) of the provided integer
+        /// </summary>
+        /// <param name="num">The number to compute the factorial of</param>
+        /// <returns>the number multiplied by every positive integer preceding it</returns>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        int Factorial(int num)
+        {
+            if (num < 0) throw new ArgumentOutOfRangeException(nameof(num), "Cannot compute the factorial of a negative number");
+            if (num == 0) return 1;
+
+            int result = 1;
+            for (int i = num; i > 0; i--)
+            {
+                result *= i;
+            }
+            return result;
         }
     }
 }
