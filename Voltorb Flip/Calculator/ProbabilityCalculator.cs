@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using Windows.ApplicationModel.AppExtensions;
 
 namespace Voltorb_Flip.Calculator
 {
@@ -396,7 +395,7 @@ namespace Voltorb_Flip.Calculator
             }
 
             // Check Combinations for guaranteed values
-            List<List<byte>> matchingPositions = new();
+            List<Dictionary<byte, byte>> matchingPositions = new();
             // Check each combination for the matching combinations of possible values
             for (int k = 0; k < allCombinations.Count; k++)
                 matchingPositions.AddRange(GetAllCombinations(possibleVals, allCombinations[k]));
@@ -406,10 +405,10 @@ namespace Voltorb_Flip.Calculator
 
             // Only positions in every single combination are guaranteed to 
             // be a number
-            List<byte> guaranteedPositions = GetCommonValue(matchingPositions);
+            Dictionary<byte, List<byte>> guaranteedPositions = GetCommonPositions(matchingPositions);
 
             // Loop through cards again to update guaranteed cards
-            foreach (byte position in guaranteedPositions)
+            foreach (byte position in guaranteedPositions.Keys)
             {
                 int row = i * position + (1 - i) * j;
                 int col = (1 - i) * position + i * j;
@@ -417,8 +416,10 @@ namespace Voltorb_Flip.Calculator
                 // Ignore flipped cards
                 if (InternalGameBoard[row, col] != 4) continue;
 
+                List<byte> guaranteedValues = guaranteedPositions[position];
+
                 // Remove Voltorb as an option
-                PossibleValues[row, col].Remove(0);
+                PossibleValues[row, col].RemoveAll(x => !guaranteedValues.Contains(x));
             }
         }
 
@@ -475,23 +476,51 @@ namespace Voltorb_Flip.Calculator
         }
 
         /// <summary>
-        /// Finds all values that exist in every <see cref="List{T}"/> within
+        /// Finds all positions that exist in every <see cref="List{T}"/> within
         /// another <see cref="List{T}"/>
         /// </summary>
         /// <typeparam name="T">The type of element within the <paramref name="values"/> list</typeparam>
         /// <param name="values">The values to check</param>
         /// <returns>A <see cref="List{T}"/> containing the common values</returns>
-        List<T> GetCommonValue<T>(List<List<T>> values)
+        Dictionary<T, List<T>> GetCommonPositions<T>(List<Dictionary<T, T>> values)
         {
-            List<T> result = new(values[0]);
+            Dictionary<T, List<T>> result = new();
 
-            foreach (List<T> valueList in values)
+            for (int i = 0; i < values.Count; i++)
             {
-                // Check each value in result list to check if it is shared
-                foreach (T value in new List<T>(result))
+                if (i == 0)
                 {
-                    if (!valueList.Contains(value)) result.Remove(value);
+                    // Add values to result list
+                    Dictionary<T, T> values1 = values[0];
+                    foreach (T position in values1.Keys)
+                    {
+                        T value = values1[position];
+                        result.Add(position, new() { value });
+                    }
+                    continue;
                 }
+
+                // Check each position-value pair in valueList for matching positions
+                Dictionary<T, T> valueList = values[i];
+
+                List<T> keysToRemove = new();
+                foreach ((T key, List<T> resultValues) in new Dictionary<T, List<T>>(result))
+                {
+                    // Remove positions that aren't shared
+                    if (!valueList.ContainsKey(key)) result.Remove(key);
+
+                    // Combine values in matching positions
+                    foreach ((T position, T value) in valueList)
+                    {
+                        if (key.Equals(position) && !resultValues.Contains(value))
+                        {
+                            result[key].Add(value);
+                        }
+                    }
+                }
+
+                foreach (T key in keysToRemove)
+                    result.Remove(key);
             }
 
             return result;
@@ -505,9 +534,9 @@ namespace Voltorb_Flip.Calculator
         /// <param name="match">The <see cref="List{byte}"/> to compare against</param>
         /// <returns>A <see cref="List{List{byte}}"/> of all combinations of positions
         /// that create <paramref name="match"/></returns>
-        List<List<byte>> GetAllCombinations(List<List<byte>> values, List<byte> match)
+        List<Dictionary<byte, byte>> GetAllCombinations(List<List<byte>> values, List<byte> match)
         {
-            List<List<byte>> combinations = new();
+            List<Dictionary<byte, byte>> combinations = new();
 
             FindCombinations(values, combinations, new(), match, 0);
 
@@ -522,32 +551,31 @@ namespace Voltorb_Flip.Calculator
         /// <param name="temp">Temporary list that stores each combination</param>
         /// <param name="match">The sequence to find a match for</param>
         /// <param name="position">The position of the card in the sequence</param>
-        void FindCombinations(List<List<byte>> values, List<List<byte>> combinations, List<byte> temp, List<byte> match, byte position)
+        void FindCombinations(List<List<byte>> values, List<Dictionary<byte, byte>> combinations, Dictionary<byte, byte> temp, List<byte> match, byte position)
         {
             if (position == match.Count)
             {
-                temp.Sort();
                 // Look for a copy of temp in combinations
-                foreach (List<byte> combo in combinations)
+                foreach (Dictionary<byte, byte> combo in combinations)
                 {
-                    if (combo.SequenceEqual(temp)) return;
+                    if (combo.Keys.SequenceEqual(temp.Keys)) return;
                 }
-                combinations.Add(new List<byte>(temp));
+                combinations.Add(new Dictionary<byte, byte>(temp));
                 return;
             }
 
             for (byte i = 0; i < values.Count; i++)
             {
                 // No repeat values
-                if (temp.Contains(i)) continue;
+                if (temp.ContainsKey(i)) continue;
 
                 List<byte> valueList = values[i];
                 foreach (byte value in valueList)
                 {
                     if (value == match[position])
                     {
-                        temp.Add(i);
-                        FindCombinations(values, combinations, new List<byte>(temp), match, (byte)(position + 1));
+                        temp.Add(i, value);
+                        FindCombinations(values, combinations, new Dictionary<byte, byte>(temp), match, (byte)(position + 1));
                         temp.Remove(i);
                     }
                 }
@@ -738,27 +766,6 @@ namespace Voltorb_Flip.Calculator
         {
             // Remove 1s
             PossibleValues[row, col].Remove(1);
-        }
-        
-
-        // Helper Functions
-        /// <summary>
-        /// Computes the factorial(!) of the provided integer
-        /// </summary>
-        /// <param name="num">The number to compute the factorial of</param>
-        /// <returns>the number multiplied by every positive integer preceding it</returns>
-        /// <exception cref="ArgumentOutOfRangeException"></exception>
-        int Factorial(int num)
-        {
-            if (num < 0) throw new ArgumentOutOfRangeException(nameof(num), "Cannot compute the factorial of a negative number");
-            if (num == 0) return 1;
-
-            int result = 1;
-            for (int i = num; i > 0; i--)
-            {
-                result *= i;
-            }
-            return result;
         }
     }
 }
