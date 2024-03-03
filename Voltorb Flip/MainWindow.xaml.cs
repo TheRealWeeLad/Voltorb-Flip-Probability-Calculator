@@ -438,6 +438,13 @@ namespace Voltorb_Flip
                 calculator.CurrentLevel = int.Parse(item.Text);
             }
         }
+        public void RaiseLevel(object sender, RoutedEventArgs e)
+        {
+            if (calculator.CurrentLevel >= 8) return; // Level can't go past 8
+            int newLevel = ++calculator.CurrentLevel;
+            LevelDropdown.Content = newLevel.ToString();
+        }
+
 
         // DEBUG
         public void DebugLog(object msg)
