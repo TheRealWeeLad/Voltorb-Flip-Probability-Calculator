@@ -39,6 +39,8 @@ namespace Voltorb_Flip
 
         bool _calibrated = false;
 
+        enum Safety { Safe, Unsafe, HighestSafety };
+
         class TaskCanceler
         {
             public bool canceled = false;
@@ -192,6 +194,10 @@ namespace Voltorb_Flip
         // Update onscreen board with calculated values
         public void UpdateCalculations()
         {
+            // Find highest probability and put a border around it
+            float highestProb = 0;
+            Canvas highestCanvas = cardCanvases[0][0];
+            bool safeExists = false;
             for (int i = 0; i < 5; i++)
             {
                 for (int j = 0; j < 5; j++)
@@ -219,6 +225,13 @@ namespace Voltorb_Flip
 
                     // Display Probability of Safety
                     float probability = calculator.Probabilities[i, j];
+                    List<byte> possibleVals = calculator.PossibleValues[i, j];
+                    // Only consider cards with 2s or 3s worthwile to click
+                    if (probability > highestProb && (possibleVals.Contains(2) || possibleVals.Contains(3)))
+                    {
+                        highestProb = probability;
+                        highestCanvas = cardCanvas;
+                    }
                     TextBlock probabilityText = (cardCanvas.Children[2]
                         as Border).Child as TextBlock;
                     byte roundedProbability = (byte)(probability * 100 + 0.5f);
@@ -241,17 +254,16 @@ namespace Voltorb_Flip
                     probabilityText.Foreground = new SolidColorBrush(color);
 
                     // Display all possibilities
-                    List<byte> possibleVals = calculator.PossibleValues[i, j];
-
                     if (!possibleVals.Contains(0))
                     {
                         // Add border to card image to signify that it is safe
-                        AddBorder(cardCanvas, safe: true);
+                        AddBorder(cardCanvas, Safety.Safe);
+                        safeExists = true;
                     }
                     else if (possibleVals.Count == 1 && possibleVals[0] == 0)
                     {
                         // Add border to signify that it is NOT safe
-                        AddBorder(cardCanvas, safe: false);
+                        AddBorder(cardCanvas, Safety.Unsafe);
                         // Replace Card image with Voltorb
                         ((cardCanvas.Children[0] as Border).Child as
                             Microsoft.UI.Xaml.Controls.Image).Source = VOLTORB_IMAGE;
@@ -268,15 +280,23 @@ namespace Voltorb_Flip
                     }
                 }
             }
+
+            // Add Border to highest probability if there is no completely safe option
+            if (!safeExists) AddBorder(highestCanvas, Safety.HighestSafety);
         }
 
         // Adds a border to the specified card to signify that it is either safe or unsafe
-        // TODO: ADD YELLOW PROBABILITY BORDER
-        static void AddBorder(Canvas cardCanvas, bool safe)
+        static void AddBorder(Canvas cardCanvas, Safety safety)
         {
             Border cardBorder = cardCanvas.Children[0] as Border;
 
-            Windows.UI.Color borderColor = safe ? Colors.LimeGreen : Colors.Red;
+            Windows.UI.Color borderColor = safety switch
+            {
+                Safety.Safe => Colors.LimeGreen,
+                Safety.Unsafe => Colors.Red,
+                Safety.HighestSafety => Colors.Yellow,
+                _ => throw new ArgumentOutOfRangeException(nameof(safety), "Safety not recognized")
+            };
             cardBorder.BorderBrush = new SolidColorBrush(borderColor);
         }
         // Removes a border from the specified card
@@ -435,16 +455,15 @@ namespace Voltorb_Flip
             if (item != null)
             {
                 LevelDropdown.Content = item.Text;
-                calculator.CurrentLevel = int.Parse(item.Text);
+                ProbabilityCalculator.CurrentLevel = int.Parse(item.Text);
             }
         }
         public void RaiseLevel(object sender, RoutedEventArgs e)
         {
-            if (calculator.CurrentLevel >= 8) return; // Level can't go past 8
-            int newLevel = ++calculator.CurrentLevel;
+            if (ProbabilityCalculator.CurrentLevel >= 8) return; // Level can't go past 8
+            int newLevel = ++ProbabilityCalculator.CurrentLevel;
             LevelDropdown.Content = newLevel.ToString();
         }
-
 
         // DEBUG
         public void DebugLog(object msg)
