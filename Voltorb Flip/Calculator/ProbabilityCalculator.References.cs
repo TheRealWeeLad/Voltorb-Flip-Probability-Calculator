@@ -34,5 +34,18 @@ namespace Voltorb_Flip.Calculator
         readonly Color topLeftSurroundingColor;
         readonly Color topLeftSelectedBorderColor;
         readonly Color topLeftUnselectedBorderColor;
+
+        // Reference Boards - (x2s, x3s, xVs)
+        readonly (int, int, int)[][] PossibleBoards = new (int, int, int)[][]
+        {
+            new (int, int, int)[] { (3, 1, 6), (0, 3, 6), (5, 0, 6), (2, 2, 6), (4, 1, 6) }, // Level 1
+            new (int, int, int)[] { (1, 3, 7), (6, 0, 7), (3, 2, 7), (0, 4, 7), (5, 1, 7) }, // Level 2
+            new (int, int, int)[] { (2, 3, 8), (7, 0, 8), (4, 2, 8), (1, 4, 8), (6, 1, 8) }, // ...etc
+            new (int, int, int)[] { (3, 3, 8), (0, 5, 8), (8, 0, 10), (5, 2, 10), (2, 4, 10) },
+            new (int, int, int)[] { (7, 1, 10), (4, 3, 10), (1, 5, 10), (9, 0, 10), (6, 2, 10) },
+            new (int, int, int)[] { (3, 4, 10), (0, 6, 10), (8, 1, 10), (5, 3, 10), (2, 5, 10) },
+            new (int, int, int)[] { (7, 2, 10), (4, 4, 10), (1, 6, 13), (9, 1, 13), (6, 3, 10) },
+            new (int, int, int)[] { (0, 7, 10), (8, 2, 10), (5, 4, 10), (2, 6, 10), (7, 3, 10) }
+        };
     }
 }
