@@ -52,11 +52,30 @@
                 Foreground="Yellow" FontSize="22"
                 IsEnabled="False" Click="TakeCapture"/>
         </Grid>
-        <Grid x:Name="DebugRow" Grid.Row="8" ColumnDefinitions="*,*">
-            <TextBlock 
-                x:Name="DebugText" Grid.Column="0"
+        <Grid x:Name="DebugRow" Grid.Row="8" ColumnDefinitions="*,*,*">
+            <TextBlock
+                Grid.Column="0" HorizontalAlignment="Center" Margin="0, 5, 200, 0"
+                FontSize="25" Foreground="OrangeRed">Current Level: </TextBlock>
+            <DropDownButton x:Name="LevelDropdown"
+                Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Top"
+                Margin="50, 0, 0, 0" FontSize="25" Content="1">
+                <DropDownButton.Flyout>
+                    <MenuFlyout x:Name="LevelFlyout" Placement="Top">
+                        <MenuFlyoutItem Text="1" Click="UpdateLevel"/>
+                        <MenuFlyoutItem Text="2" Click="UpdateLevel"/>
+                        <MenuFlyoutItem Text="3" Click="UpdateLevel"/>
+                        <MenuFlyoutItem Text="4" Click="UpdateLevel"/>
+                        <MenuFlyoutItem Text="5" Click="UpdateLevel"/>
+                        <MenuFlyoutItem Text="6" Click="UpdateLevel"/>
+                        <MenuFlyoutItem Text="7" Click="UpdateLevel"/>
+                        <MenuFlyoutItem Text="8" Click="UpdateLevel"/>
+                    </MenuFlyout>
+                </DropDownButton.Flyout>
+            </DropDownButton>
+            <TextBlock
+                x:Name="DebugText" Grid.Column="1"
                 HorizontalAlignment="Center" FontSize="25">DEBUG</TextBlock>
-            <Image x:Name="DebugImg" Grid.Column="1" HorizontalAlignment="Center"
+            <Image x:Name="DebugImg" Grid.Column="2" HorizontalAlignment="Center"
                 Height="100" Width="100" Source="Assets/Square150x150Logo.scale-200.png"/>
         </Grid>
     </Grid>

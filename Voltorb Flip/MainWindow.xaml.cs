@@ -271,6 +271,7 @@ namespace Voltorb_Flip
         }
 
         // Adds a border to the specified card to signify that it is either safe or unsafe
+        // TODO: ADD YELLOW PROBABILITY BORDER
         static void AddBorder(Canvas cardCanvas, bool safe)
         {
             Border cardBorder = cardCanvas.Children[0] as Border;
@@ -428,6 +429,15 @@ namespace Voltorb_Flip
                 CaptureButton.IsEnabled = false;
         }
         public void TakeCapture(object sender, RoutedEventArgs e) => CaptureAndScan();
+        public void UpdateLevel(object sender, RoutedEventArgs e)
+        {
+            MenuFlyoutItem item = sender as MenuFlyoutItem;
+            if (item != null)
+            {
+                LevelDropdown.Content = item.Text;
+                calculator.CurrentLevel = int.Parse(item.Text);
+            }
+        }
 
         // DEBUG
         public void DebugLog(object msg)
