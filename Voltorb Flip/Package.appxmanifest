@@ -11,13 +11,13 @@
   <Identity
     Name="a9e5e9a1-3577-4c1d-9baa-a48881aad90a"
     Publisher="CN=mateo"
-    Version="1.0.0.0" />
+    Version="0.1.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="a9e5e9a1-3577-4c1d-9baa-a48881aad90a" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
     <DisplayName>Voltorb Flip</DisplayName>
-    <PublisherDisplayName>mateo</PublisherDisplayName>
+    <PublisherDisplayName>TheRealWeeLad</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -36,7 +36,7 @@
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
         DisplayName="Voltorb Flip"
-        Description="Voltorb Flip"
+        Description="An autonomous, dynamic solution finder for the hit game Voltorb Flip!"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
