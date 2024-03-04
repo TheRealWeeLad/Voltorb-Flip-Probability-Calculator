@@ -161,7 +161,6 @@ namespace Voltorb_Flip.Calculator
             if (UpdateInformation()) CalculateUnknowns();
         }
 
-        // TODO: FIX BOARD POSSIBILITY CHECKS
         /// <summary>
         /// Updates InternalGameBoard and currentPossibleBoards based on calculated
         /// information
@@ -222,6 +221,7 @@ namespace Voltorb_Flip.Calculator
             return updated;
         }
 
+        // BROKEN / DOES NOT WORK
         /// <summary>
         /// Calculate the probability that each square in the board is safe by crosschecking all possible boards
         /// </summary>
@@ -295,7 +295,7 @@ namespace Voltorb_Flip.Calculator
                     }
 
                     if (prob2 == 0 && prob3 == 0)
-                        Probabilities[r, c] = totalProbV;
+                        Probabilities[r, c] =  1 - totalProbV;
                     else Probabilities[r, c] = totalProb2 + totalProb3;
                 }
             }

@@ -120,7 +120,7 @@ namespace Voltorb_Flip.Calculator
                     }
                 }
             }
-            DebugLog("Done: Not Found");
+            //DebugLog("Done: Not Found");
             return false;
         }
 
@@ -235,7 +235,7 @@ namespace Voltorb_Flip.Calculator
                 }
                 catch (InvalidOperationException)
                 {
-                    DebugLog("Invalid Size: " + size);
+                    //DebugLog("Invalid Size: " + size);
                 }
             }
             return false;
@@ -274,7 +274,7 @@ namespace Voltorb_Flip.Calculator
                 VerifyToleranceSimple((Bitmap)diffUnselected, strict: false);
             try
             {
-                if (!withinTolerance) DebugLog("Tolerance Failed:\n" + _startX + ", " + _startY);
+                //if (!withinTolerance) DebugLog("Tolerance Failed:\n" + _startX + ", " + _startY);
                 return selected || unselected || withinTolerance;
             }
             finally
@@ -614,7 +614,7 @@ namespace Voltorb_Flip.Calculator
                         }
                         catch (InvalidOperationException)
                         {
-                            DebugLog("Invalid Size: " + resizedCard.Size + "\nShould be: " + flippedOne.Size);
+                            //DebugLog("Invalid Size: " + resizedCard.Size + "\nShould be: " + flippedOne.Size);
                         }
                     }
                     else
@@ -650,7 +650,7 @@ namespace Voltorb_Flip.Calculator
             // Calculate what's behind the unkown cards
             FillInKnownValues();
             CalculateUnknowns();
-            CalculateProbabilities();
+            //CalculateProbabilities();
             // Update board based on calculated values on UI thread
             window.DispatcherQueue.TryEnqueue(() => window.UpdateCalculations());
         }
@@ -743,7 +743,7 @@ namespace Voltorb_Flip.Calculator
                     return i;
             }
             // If not found, just return 0 cuz why not :D
-            DebugLog("Number not found");
+            //DebugLog("Number not found");
             return 0;
         }
 
@@ -811,7 +811,7 @@ namespace Voltorb_Flip.Calculator
             }
         }
 
-        // DEBUG
+        /*// DEBUG
         void DebugLog(object msg)
         {
             window.DispatcherQueue.TryEnqueue(() => window.DebugLog(msg));
@@ -839,6 +839,6 @@ namespace Voltorb_Flip.Calculator
         {
             window.DispatcherQueue.TryEnqueue(() => 
                 window.DebugImage(bitmap.ConvertToBitmapImage(false)));
-        }
+        }*/
     }
 }

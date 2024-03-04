@@ -206,7 +206,7 @@ namespace Voltorb_Flip
 
                     if (calculator.GameBoard[i, j] != 4)
                     {
-                        // If we already have this square flipped, get rid of
+                        /*// If we already have this square flipped, get rid of
                         // borders, possibilities and probabilities
                         ((cardCanvas.Children[2] as Border).Child
                             as TextBlock).Text = "";
@@ -216,16 +216,17 @@ namespace Voltorb_Flip
                         {
                             ((possibilityContainer.Children[n] as Border).Child as
                                 TextBlock).Text = "";
-                        }
+                        }*/
 
                         RemoveBorder(cardCanvas);
 
                         continue;
                     }
 
-                    // Display Probability of Safety
-                    float probability = calculator.Probabilities[i, j];
                     List<byte> possibleVals = calculator.PossibleValues[i, j];
+
+                    /*// Display Probability of Safety
+                    float probability = calculator.Probabilities[i, j];
                     // Only consider cards with 2s or 3s worthwile to click
                     if (probability > highestProb && (possibleVals.Contains(2) || possibleVals.Contains(3)))
                     {
@@ -251,7 +252,7 @@ namespace Voltorb_Flip
 
                     probabilityText.Text = roundedProbability.ToString() + "%";
                     probabilityText.Margin = probMargin;
-                    probabilityText.Foreground = new SolidColorBrush(color);
+                    probabilityText.Foreground = new SolidColorBrush(color);*/
 
                     // Display all possibilities
                     if (!possibleVals.Contains(0))
@@ -281,8 +282,8 @@ namespace Voltorb_Flip
                 }
             }
 
-            // Add Border to highest probability if there is no completely safe option
-            if (!safeExists) AddBorder(highestCanvas, Safety.HighestSafety);
+            /*// Add Border to highest probability if there is no completely safe option
+            if (!safeExists) AddBorder(highestCanvas, Safety.HighestSafety);*/
         }
 
         // Adds a border to the specified card to signify that it is either safe or unsafe
@@ -447,6 +448,9 @@ namespace Voltorb_Flip
         {
             if (_calibrated)
                 CaptureButton.IsEnabled = false;
+            // Begin Continuous Game Loop
+            GameLoopCanceler.Reset();
+            Task.Run(() => GameLoop(GameLoopCanceler));
         }
         public void TakeCapture(object sender, RoutedEventArgs e) => CaptureAndScan();
         public void UpdateLevel(object sender, RoutedEventArgs e)
@@ -466,13 +470,13 @@ namespace Voltorb_Flip
         }
 
         // DEBUG
-        public void DebugLog(object msg)
+        /*public void DebugLog(object msg)
         {
             DebugText.Text = msg.ToString();
         }
         public void DebugImage(BitmapImage image)
         {
             DebugImg.Source = image;
-        }
+        }*/
     }
 }
