@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using Windows.ApplicationModel.Activation;
 
 namespace Voltorb_Flip.Calculator
 {
@@ -152,6 +153,9 @@ namespace Voltorb_Flip.Calculator
                     VoltorbSweep(i, j, voltorbs);
                 }
             }
+
+            // Analyze possible board states to check for guaranteed points
+            AnalyzeBoards();
 
             // Recheck with updated GameBoard and PossibilityBoard
             if (UpdateInformation()) CalculateUnknowns();
@@ -370,28 +374,63 @@ namespace Voltorb_Flip.Calculator
             // Each bit represents position in row/column
             List<List<byte>> possibleVals = new();
             // Look through cards to find all occurrences of 2 and 3
+            int num2s = 0;
+            int num3s = 0;
             for (int n = 0; n < 5; n++)
             {
                 int row = i * n + (1 - i) * j;
                 int col = (1 - i) * n + i * j;
                 
                 // Ignore known cards
-                if (InternalGameBoard[row, col] != 4) continue;
-
-                // Check if values in this position are possible based on allCombinations
-                List<byte> value = PossibleValues[row, col];
-                foreach (byte val in value)
+                if (InternalGameBoard[row, col] != 4)
                 {
-                    if (val == 0) continue;
-                    // If value is not present in any combination, it is not possible
-                    if (allCombinations.All(combo => !combo.Contains(val)))
-                        value.Remove(val);
+                    // Add dummy value to make possibleVals the correct length
+                    possibleVals.Add(new() { 182 });
+                    continue;
                 }
+
+                List<byte> value = PossibleValues[row, col];
+                if (value.Contains(2)) num2s++;
+                if (value.Contains(3)) num3s++;
 
                 List<byte> valueCopy = new(value);
                 // Ignore voltorbs in combination matching
                 valueCopy.Remove(0);
                 possibleVals.Add(valueCopy);
+            }
+
+            // Use number of twos and threes to eliminate possible combinations
+            foreach (List<byte> combo in new List<List<byte>>(allCombinations))
+            {
+                // If there are too few 2s or 3s for the combination, eliminate it
+                if (num2s < combo.Count(x => x == 2) ||
+                    num3s < combo.Count(x => x == 3))
+                    allCombinations.Remove(combo);
+            }
+
+            // Loop again to eliminate possible combinations
+            for (int n = 0; n < 5; n++)
+            {
+                int row = i * n + (1 - i) * j;
+                int col = (1 - i) * n + i * j;
+
+                // Ignore known cards
+                if (InternalGameBoard[row, col] != 4) continue;
+
+                List<byte> value = PossibleValues[row, col];
+
+                // Check if values in this position are possible based on allCombinations
+                foreach (byte val in new List<byte>(value))
+                {
+                    if (val == 0) continue;
+                    // Increment number of 2s and 3s
+                    if (val == 2) num2s++;
+                    else if (val == 3) num3s++;
+
+                    // If value is not present in any combination, it is not possible
+                    if (allCombinations.All(combo => !combo.Contains(val)))
+                        value.Remove(val);
+                }
             }
 
             // Check Combinations for guaranteed values
@@ -406,20 +445,74 @@ namespace Voltorb_Flip.Calculator
             // Only positions in every single combination are guaranteed to 
             // be a number
             Dictionary<byte, List<byte>> guaranteedPositions = GetCommonPositions(matchingPositions);
-
+            
             // Loop through cards again to update guaranteed cards
             foreach (byte position in guaranteedPositions.Keys)
             {
                 int row = i * position + (1 - i) * j;
                 int col = (1 - i) * position + i * j;
 
-                // Ignore flipped cards
+                // Ignore known cards
                 if (InternalGameBoard[row, col] != 4) continue;
 
                 List<byte> guaranteedValues = guaranteedPositions[position];
 
-                // Remove Voltorb as an option
+                // Leave only guaranteed value as an option
                 PossibleValues[row, col].RemoveAll(x => !guaranteedValues.Contains(x));
+            }
+        }
+
+        /// <summary>
+        /// Analyze all remaining possible boards to determine whether the remaining
+        /// possible 2s and 3s must be correct
+        /// </summary>
+        void AnalyzeBoards()
+        {
+            // Loop through entire board to find total number of 2s and 3s
+            int totalNum2s = 0;
+            int totalNum3s = 0;
+            for (int r = 0; r < 5; r++)
+            {
+                for (int c = 0; c < 5; c++)
+                {
+                    // Ignore known tiles
+                    if (InternalGameBoard[r, c] != 4) continue;
+
+                    List<byte> values = PossibleValues[r, c];
+                    if (values.Contains(2)) totalNum2s++;
+                    if (values.Contains(3)) totalNum3s++;
+                }
+            }
+
+            // Check these against possible boards
+            bool twosGuaranteed = true;
+            bool threesGuaranteed = true;
+            foreach ((int, int, int) board in currentPossibleBoards)
+            {
+                // If there are fewer or equal possible twos on the board than
+                // there are in all possible boards, all possible twos must be twos
+                if (totalNum2s > board.Item1 - currentFoundValues.Item1)
+                    twosGuaranteed = false;
+                if (totalNum3s > board.Item2 - currentFoundValues.Item2)
+                    threesGuaranteed = false;
+            }
+
+            if (!twosGuaranteed && !threesGuaranteed) return; // Nothing to do
+
+            // Loop through entire board again to flip over guaranteed twos/threes
+            for (int r = 0; r < 5; r++)
+            {
+                for (int c = 0; c < 5; c++)
+                {
+                    // Ignore known tiles
+                    if (InternalGameBoard[r, c] != 4) continue;
+
+                    List<byte> values = PossibleValues[r, c];
+                    if (twosGuaranteed && values.Contains(2))
+                        values.RemoveAll(x => x != 2);
+                    else if (threesGuaranteed && values.Contains(3))
+                        values.RemoveAll(x => x != 3);
+                }
             }
         }
 
@@ -476,12 +569,13 @@ namespace Voltorb_Flip.Calculator
         }
 
         /// <summary>
-        /// Finds all positions that exist in every <see cref="List{T}"/> within
-        /// another <see cref="List{T}"/>
+        /// Finds all positions that exist in every <see cref="Dictionary{TKey, TValue}{T}"/>
+        /// within a <see cref="List{T}"/>
         /// </summary>
         /// <typeparam name="T">The type of element within the <paramref name="values"/> list</typeparam>
         /// <param name="values">The values to check</param>
-        /// <returns>A <see cref="List{T}"/> containing the common values</returns>
+        /// <returns>A <see cref="Dictionary{TKey, TValue}"/> containing the
+        /// common keys and values</returns>
         Dictionary<T, List<T>> GetCommonPositions<T>(List<Dictionary<T, T>> values)
         {
             Dictionary<T, List<T>> result = new();
