@@ -3,6 +3,10 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Example Images
+example.jpg
+rule8-example.gif
+
 # User-specific files
 *.rsuser
 *.suo
