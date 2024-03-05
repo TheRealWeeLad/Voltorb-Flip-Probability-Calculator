@@ -66,22 +66,22 @@ Once a match is found, the application uses the length of the image on screen to
 
 At this point, we have the relative scale of the screen, so the application simply calculates the position and size of the top-left card, takes a screenshot using those parameters, and [compares](#image-comparison) it to the reference images below.
 
-<img src="Voltorb Flip/Assets/top-left-unselected.png" width=49%/>
-<img src="Voltorb Flip/Assets/top-left-selected.png" width=49%/>
+<img src="Voltorb Flip/Assets/top-left-unselected.png" width=45%/>
+<img src="Voltorb Flip/Assets/top-left-selected.png" width=45%/>
 
 ### Board Scanning
 
 Now that we have found the top-left corner of the game board, we can now begin scanning for flipped tiles and line information. Using the screen's relative scale, the application incrementally checks each card on the board and compares them to the flipped card reference images.
 
-<img src="Voltorb Flip/Assets/flipped-1.png" width=32%/>
-<img src="Voltorb Flip/Assets/flipped-2.png" width=32%/>
-<img src="Voltorb Flip/Assets/flipped-3.png" width=32%/>
+<img src="Voltorb Flip/Assets/flipped-1.png" width=28%/>
+<img src="Voltorb Flip/Assets/flipped-2.png" width=28%/>
+<img src="Voltorb Flip/Assets/flipped-3.png" width=28%/>
 
 Then, the application checks the voltorb cards at the edge of the board and scans them for the numbers contained within. Since the numbers are at the exact same positions within each card, we can simply check those positions and [compare](#image-comparison) them with all number images to determine their values.
 
-<img src="Voltorb Flip/Assets/1.png" width=30%/>
-<img src="Voltorb Flip/Assets/2.png" width=30%/>
-<img src="Voltorb Flip/Assets/3.png" width=30%/> etc
+<img src="Voltorb Flip/Assets/1.png" width=26%/>
+<img src="Voltorb Flip/Assets/2.png" width=26%/>
+<img src="Voltorb Flip/Assets/3.png" width=26%/> etc
 
 ## Image Comparison
 Since this application is designed to work for devices of varying aspect ratios, it resizes all screenshots based on the calculated relative scale. However, [System.Drawing](https://learn.microsoft.com/en-us/dotnet/api/system.drawing?view=dotnet-plat-ext-8.0) built-in resizing is rarely pixel perfect, which causes problems for pixel-by-pixel approaches. Some other factors that may cause screenshots to slightly differ from the reference images may be monitor brightness, saturation, color balance, or screen tearing. 
@@ -95,6 +95,6 @@ To reconcile these potential issues, we must implement some sort of imperfection
 
 This algorithm works great for most use cases as the tolerance can be edited as needed depending on how precise our image comparison needs to be. However, for distinguishing between numbers found on cards, the background color of each card is different, so we can't just input it directly into the image comparison algorithm. 
 
-<img src="voltorb-card-example.png" width=70%>
+<img src="voltorb-card-example.png" width=50%>
 
 Before comparing with reference images, we need to remove the background color from our internal screenshot. We do this by first finding the exact shade of black used for this specific number and then clear out all pixels that are a different color.
