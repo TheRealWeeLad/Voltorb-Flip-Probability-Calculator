@@ -37,3 +37,64 @@ there must be either 2 twos or 1 three, and in either case, the 4th card must be
 9. If the number of potential ***2s*** or ***3s*** on the board <= the total number of ***2s*** or ***3s*** for [each possible board in the given level](https://bulbapedia.bulbagarden.net/wiki/Voltorb_Flip#:~:text=contain%20more%20Voltorbs%3A-,Level,-%C3%972s), they are all guaranteed to be ***2s*** or ***3s***. This is useful during the endgame in which all other rules have already exhausted their use.
 
 Throughout the evaluation of these rules, the application constantly keeps track of which of the [predetermined boards for the level](https://bulbapedia.bulbagarden.net/wiki/Voltorb_Flip#:~:text=contain%20more%20Voltorbs%3A-,Level,-%C3%972s) are possible at any given point. It uses this informaiton to determine which combinations of point values are possible in each line, providing vital information in endgame states.
+
+# Screen Capture/Board Detection
+
+## Locating the board onscreen
+
+This application uses incremental pixel detection to locate the top-left pixel of the game board by comparing its color to a reference image.
+
+<img src="./pixel-example.png" width=70%>
+
+## Verifying that we have actually found the board
+
+For the sake of performance, the application doesn't try to scan the entire board whenever it has found a pixel of the correct color. It instead follows several verification steps of increasing complexity.
+
+### Surroundings Verification
+
+First, the application looks at the pixels above, below, and to the sides to verify that they are also the correct colors. However, to compensate for varying screen resolutions, it will look several pixels to the right and below to make sure that we are not missing anything.
+
+<img src="./surroundings-example.png" width=70%>
+
+### Top Row Verification
+
+The previous verification will rule out most false positives, but now we have to verify that we have found the exact top-left pixel. To do this, the application scans the entire top row of the detected card by procedurally comparing it to the top row of the reference image.
+<img src="./top-row-example.png" width=100%>
+Once a match is found, the application uses the length of the image on screen to calculate the relative scale of the entire board compared to the reference images. This scale will be used for all following calculations, so this step is vital for detecting the rest of the board.
+
+### Whole Card Verification
+
+At this point, we have the relative scale of the screen, so the application simply calculates the position and size of the top-left card, takes a screenshot using those parameters, and [compares](#image-comparison) it to the reference images below.
+
+<img src="Voltorb Flip/Assets/top-left-unselected.png" width=49%/>
+<img src="Voltorb Flip/Assets/top-left-selected.png" width=49%/>
+
+### Board Scanning
+
+Now that we have found the top-left corner of the game board, we can now begin scanning for flipped tiles and line information. Using the screen's relative scale, the application incrementally checks each card on the board and compares them to the flipped card reference images.
+
+<img src="Voltorb Flip/Assets/flipped-1.png" width=32%/>
+<img src="Voltorb Flip/Assets/flipped-2.png" width=32%/>
+<img src="Voltorb Flip/Assets/flipped-3.png" width=32%/>
+
+Then, the application checks the voltorb cards at the edge of the board and scans them for the numbers contained within. Since the numbers are at the exact same positions within each card, we can simply check those positions and [compare](#image-comparison) them with all number images to determine their values.
+
+<img src="Voltorb Flip/Assets/1.png" width=30%/>
+<img src="Voltorb Flip/Assets/2.png" width=30%/>
+<img src="Voltorb Flip/Assets/3.png" width=30%/> etc
+
+## Image Comparison
+Since this application is designed to work for devices of varying aspect ratios, it resizes all screenshots based on the calculated relative scale. However, [System.Drawing](https://learn.microsoft.com/en-us/dotnet/api/system.drawing?view=dotnet-plat-ext-8.0) built-in resizing is rarely pixel perfect, which causes problems for pixel-by-pixel approaches. Some other factors that may cause screenshots to slightly differ from the reference images may be monitor brightness, saturation, color balance, or screen tearing. 
+
+To reconcile these potential issues, we must implement some sort of imperfection tolerance into our image comparison algorithm. Here is the algorithm I came up with after contemplating this issue:
+
+- First, run [ImageComparer.Compare](https://learn.microsoft.com/en-us/dotnet/api/microsoft.visualstudio.testtools.uitesting.imagecomparer.compare?view=visualstudiosdk-2017&redirectedfrom=MSDN#overloads) on the image. If this works, we're done. YIPPEE!! :D
+- Otherwise, loop through every pixel in the difference image provided by [ImageComparer.Compare](https://learn.microsoft.com/en-us/dotnet/api/microsoft.visualstudio.testtools.uitesting.imagecomparer.compare?view=visualstudiosdk-2017&redirectedfrom=MSDN#overloads), checking to see if the pixel color is within tolerance.
+- If the pixel color is outside tolerance, use a Breadth-First Search (BFS) based algorithm to find the size of all "islands" of non-tolerated pixels.
+- If any "island" is larger than our tolerance, the image is not similar enough to the reference to be considered "equal"
+
+This algorithm works great for most use cases as the tolerance can be edited as needed depending on how precise our image comparison needs to be. However, for distinguishing between numbers found on cards, the background color of each card is different, so we can't just input it directly into the image comparison algorithm. 
+
+<img src="voltorb-card-example.png" width=70%>
+
+Before comparing with reference images, we need to remove the background color from our internal screenshot. We do this by first finding the exact shade of black used for this specific number and then clear out all pixels that are a different color.
