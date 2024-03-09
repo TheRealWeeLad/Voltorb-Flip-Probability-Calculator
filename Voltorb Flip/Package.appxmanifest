@@ -18,7 +18,7 @@
   <Properties>
     <DisplayName>Voltorb Flip</DisplayName>
     <PublisherDisplayName>TheRealWeeLad</PublisherDisplayName>
-    <Logo>Assets\StoreLogo.png</Logo>
+    <Logo>Assets\voltorb.png</Logo>
   </Properties>
 
   <Dependencies>
@@ -38,10 +38,10 @@
         DisplayName="Voltorb Flip"
         Description="An autonomous, dynamic solution finder for the hit game Voltorb Flip!"
         BackgroundColor="transparent"
-        Square150x150Logo="Assets\Square150x150Logo.png"
-        Square44x44Logo="Assets\Square44x44Logo.png">
+        Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets/voltorb.png">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
+        <uap:LockScreen BadgeLogo="Assets/voltorb.png" Notification="badge"/>
       </uap:VisualElements>
     </Application>
   </Applications>

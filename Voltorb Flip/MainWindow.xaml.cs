@@ -470,13 +470,13 @@ namespace Voltorb_Flip
         }
 
         // DEBUG
-        /*public void DebugLog(object msg)
+        public void DebugLog(object msg)
         {
             DebugText.Text = msg.ToString();
         }
         public void DebugImage(BitmapImage image)
         {
             DebugImg.Source = image;
-        }*/
+        }
     }
 }
