@@ -38,9 +38,15 @@
         DisplayName="Voltorb Flip"
         Description="An autonomous, dynamic solution finder for the hit game Voltorb Flip!"
         BackgroundColor="transparent"
-        Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets/voltorb.png">
-        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
-        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+        Square150x150Logo="Assets\voltorb.png" Square44x44Logo="Assets\voltorb.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\voltorb.png"  Square71x71Logo="Assets\voltorb.png" Square310x310Logo="Assets\voltorb.png">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo"/>
+            <uap:ShowOn Tile="wide310x150Logo"/>
+            <uap:ShowOn Tile="square310x310Logo"/>
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile >
+        <uap:SplashScreen Image="Assets\voltorb.png" />
         <uap:LockScreen BadgeLogo="Assets/voltorb.png" Notification="badge"/>
       </uap:VisualElements>
     </Application>

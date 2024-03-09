@@ -13,6 +13,7 @@ using Windows.Devices.Display;
 
 using Voltorb_Flip.Calculator;
 using Microsoft.UI;
+using Windows.ApplicationModel;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -56,7 +57,9 @@ namespace Voltorb_Flip
             // Initialize Title Bar
             ExtendsContentIntoTitleBar = true;
             SetTitleBar(AppTitleBar);
-            AppTitleBarText.Text = "Voltorb Flip Probability Calculator";
+            AppTitleBarText.Text = "Voltorb Flip Solver";
+            AppWindow.SetIcon("Assets/voltorb.ico");
+            AppWindow.Title = "Voltorb Flip Solver";
 
             // Initialize Calculator
             calculator = new(this);
@@ -469,7 +472,7 @@ namespace Voltorb_Flip
             LevelDropdown.Content = newLevel.ToString();
         }
 
-        // DEBUG
+        /*// DEBUG
         public void DebugLog(object msg)
         {
             DebugText.Text = msg.ToString();
@@ -477,6 +480,6 @@ namespace Voltorb_Flip
         public void DebugImage(BitmapImage image)
         {
             DebugImg.Source = image;
-        }
+        }*/
     }
 }
