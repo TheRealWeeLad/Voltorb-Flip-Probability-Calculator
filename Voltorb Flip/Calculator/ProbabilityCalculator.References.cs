@@ -1,31 +1,33 @@
-﻿using Microsoft.Win32.SafeHandles;
-using System;
+﻿using System;
 using System.Drawing;
+using System.IO;
 
 namespace Voltorb_Flip.Calculator
 {
     partial class ProbabilityCalculator
     {
+        static readonly string APP_DIRECTORY = AppDomain.CurrentDomain.BaseDirectory;
+
         // Reference Images
-        static readonly Bitmap topLeftSelected = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\top-left-selected.png") as Bitmap;
-        static readonly Bitmap topLeftUnselected = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\top-left-unselected.png") as Bitmap;
+        static readonly Bitmap topLeftSelected = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\top-left-selected.png")) as Bitmap;
+        static readonly Bitmap topLeftUnselected = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\top-left-unselected.png")) as Bitmap;
         readonly Bitmap topRowSelected;
         readonly Bitmap topRowUnselected;
-        static readonly Bitmap zero = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\0.png") as Bitmap;
-        static readonly Bitmap one = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\1.png") as Bitmap;
-        static readonly Bitmap two = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\2.png") as Bitmap;
-        static readonly Bitmap three = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\3.png") as Bitmap;
-        static readonly Bitmap four = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\4.png") as Bitmap;
-        static readonly Bitmap five = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\5.png") as Bitmap;
-        static readonly Bitmap six = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\6.png") as Bitmap;
-        static readonly Bitmap seven = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\7.png") as Bitmap;
-        static readonly Bitmap eight = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\8.png") as Bitmap;
-        static readonly Bitmap nine = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\9.png") as Bitmap;
+        static readonly Bitmap zero = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\0.png")) as Bitmap;
+        static readonly Bitmap one = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\1.png")) as Bitmap;
+        static readonly Bitmap two = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\2.png")) as Bitmap;
+        static readonly Bitmap three = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\3.png")) as Bitmap;
+        static readonly Bitmap four = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\4.png")) as Bitmap;
+        static readonly Bitmap five = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\5.png")) as Bitmap;
+        static readonly Bitmap six = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\6.png")) as Bitmap;
+        static readonly Bitmap seven = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\7.png")) as Bitmap;
+        static readonly Bitmap eight = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\8.png")) as Bitmap;
+        static readonly Bitmap nine = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\9.png")) as Bitmap;
         static readonly Bitmap[] numberBitmaps = { zero, one, two, three, four, five, six, seven, eight, nine };
-        static readonly Bitmap flippedOne = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\flipped-1.png") as Bitmap;
-        static readonly Bitmap flippedTwo = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\flipped-2.png") as Bitmap;
-        static readonly Bitmap flippedThree = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\flipped-3.png") as Bitmap;
-        static readonly Bitmap cardHidden = Image.FromFile(@"D:\Other Stuff\Voltorb Flip\Voltorb Flip\Assets\card-hidden-lowres.png") as Bitmap;
+        static readonly Bitmap flippedOne = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\flipped-1.png")) as Bitmap;
+        static readonly Bitmap flippedTwo = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\flipped-2.png")) as Bitmap;
+        static readonly Bitmap flippedThree = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\flipped-3.png")) as Bitmap;
+        static readonly Bitmap cardHidden = Image.FromFile(Path.Combine(APP_DIRECTORY, @"Assets\card-hidden-lowres.png")) as Bitmap;
         readonly Bitmap[] voltorbBitmaps;
 
         // Reference Quantities
