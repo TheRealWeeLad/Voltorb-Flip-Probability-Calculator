@@ -4,7 +4,7 @@ using System.IO;
 
 namespace Voltorb_Flip.Calculator
 {
-    partial class ProbabilityCalculator
+    partial class Solver
     {
         static readonly string APP_DIRECTORY = AppDomain.CurrentDomain.BaseDirectory;
 

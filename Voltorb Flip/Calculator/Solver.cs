@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace Voltorb_Flip.Calculator
 {
-    partial class ProbabilityCalculator
+    partial class Solver
     {
         public byte[,] GameBoard { get; private set; } = new byte[5, 5];
         byte[,] InternalGameBoard { get; set; } = new byte[5, 5];
@@ -25,7 +25,7 @@ namespace Voltorb_Flip.Calculator
 
         public static int CurrentLevel { get; set; } = 1;
 
-        public ProbabilityCalculator(MainWindow window)
+        public Solver(MainWindow window)
         {
             this.window = window;
 

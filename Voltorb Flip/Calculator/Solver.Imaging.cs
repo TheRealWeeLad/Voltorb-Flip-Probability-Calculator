@@ -7,7 +7,7 @@ using System.Drawing.Drawing2D;
 
 namespace Voltorb_Flip.Calculator
 {
-    partial class ProbabilityCalculator
+    partial class Solver
     {
         readonly MainWindow window;
 

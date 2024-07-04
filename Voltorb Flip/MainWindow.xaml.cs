@@ -34,7 +34,7 @@ namespace Voltorb_Flip
         readonly Thickness TWO_DIGIT_MARGIN = new(15, 14, 0, 0);
         readonly Thickness ONE_DIGIT_MARGIN = new(25, 14, 0, 0);
 
-        ProbabilityCalculator calculator;
+        Solver calculator;
         public readonly BitmapImage[] voltorbImages;
         readonly List<List<Canvas>> cardCanvases = new();
 
@@ -462,13 +462,13 @@ namespace Voltorb_Flip
             if (item != null)
             {
                 LevelDropdown.Content = item.Text;
-                ProbabilityCalculator.CurrentLevel = int.Parse(item.Text);
+                Solver.CurrentLevel = int.Parse(item.Text);
             }
         }
         public void RaiseLevel(object sender, RoutedEventArgs e)
         {
-            if (ProbabilityCalculator.CurrentLevel >= 8) return; // Level can't go past 8
-            int newLevel = ++ProbabilityCalculator.CurrentLevel;
+            if (Solver.CurrentLevel >= 8) return; // Level can't go past 8
+            int newLevel = ++Solver.CurrentLevel;
             LevelDropdown.Content = newLevel.ToString();
         }
 
