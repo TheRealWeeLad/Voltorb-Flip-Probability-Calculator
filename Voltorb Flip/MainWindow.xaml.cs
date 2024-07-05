@@ -472,14 +472,148 @@ namespace Voltorb_Flip
             LevelDropdown.Content = newLevel.ToString();
         }
 
-        /*// DEBUG
+        // DEBUG
         public void DebugLog(object msg)
         {
             DebugText.Text = msg.ToString();
         }
+        void DebugList<T>(List<T> list)
+        {
+            string s = "";
+            foreach (T item in list)
+            {
+                if (item.GetType().IsGenericType &&
+                    item.GetType().GetGenericTypeDefinition() == typeof(List<>))
+                {
+                    IList iterable = (IList)item;
+                    foreach (var item2 in iterable)
+                    {
+                        s += item2.ToString() + ", ";
+                    }
+                    s = s[0..^2] + "\n";
+                }
+                else s += item.ToString() + ", ";
+            }
+            DebugLog(s);
+        }
         public void DebugImage(BitmapImage image)
         {
             DebugImg.Source = image;
-        }*/
+        }
+        public void DebugBoard(Board boardObj)
+        {
+            int[] board = boardObj.BoardState; // 25 items
+
+            // Reset list of card images
+            if (cardCanvases.Count > 0) cardCanvases.Clear();
+
+            // Initialize Board with 5 rows and 5 columns
+            for (int r = 1; r <= 6; r++)
+            {
+                // Find Correct Row Element
+                Grid row = GridObj.FindName("Row" + r) as Grid ?? throw new Exception(string.Format("Row{0} not found", r));
+                // Reset children if there are any
+                if (row.Children.Count > 0) row.Children.Clear();
+                cardCanvases.Add(new());
+
+                for (int c = 0; c <= 5; c++)
+                {
+                    if (c == 5 && r == 6) continue; // Leave bottom-right corner blank
+                    int idx = 5 * (r - 1) + c;
+
+                    // Fill 5x5 square with unflipped cards
+                    // Fill last row and column with voltorb indicators
+                    BitmapImage sourceImage;
+                    if (c < 5 && r < 6)
+                    {
+                        if (board[idx] == 1)
+                            sourceImage = VOLTORB_IMAGE;
+                        else if (board[idx] == 0)
+                            sourceImage = new(new Uri($"ms-appx:///Assets/flipped-1-highres.png"));
+                        else
+                            sourceImage = new(new Uri($"ms-appx:///Assets/flipped-{board[idx]}-highres.png"));
+                    }
+                    else
+                    {
+                        // Index voltorb images by the row/column
+                        int voltorbIdx = c == 5 ? r - 1 : c + 5;
+                        sourceImage = voltorbImages[voltorbIdx];
+                    }
+
+                    Canvas canvas = new()
+                    {
+                        Margin = new Thickness(CARD_SIZE / 2, 0, 0, CARD_SIZE / 2)
+                    };
+                    Microsoft.UI.Xaml.Controls.Image hiddenCardImg = new()
+                    {
+                        Width = CARD_SIZE,
+                        Height = CARD_SIZE,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        Source = sourceImage
+                    };
+                    Border border = new()
+                    {
+                        Child = hiddenCardImg,
+                        BorderThickness = new(CARD_BORDER_THICKNESS)
+                    };
+                    canvas.Children.Add(border);
+                    if (c < 5 && r < 6)
+                    {
+                        // Add Darkening overlay
+                        Microsoft.UI.Xaml.Shapes.Rectangle darkRect = new()
+                        {
+                            Fill = new SolidColorBrush(Colors.Black),
+                            Opacity = 0.5,
+                            Width = CARD_SIZE,
+                            Height = CARD_SIZE,
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            Margin = new(CARD_BORDER_THICKNESS, CARD_BORDER_THICKNESS, 0, 0)
+                        };
+                        canvas.Children.Add(darkRect);
+                        // Add numbers to corners for possibilities and center for probabilities
+                        Canvas numberContainer = new();
+                        TextBlock probText = new()
+                        {
+                            FontSize = 30,
+                            Foreground = new SolidColorBrush(Colors.Lime)
+                        };
+                        Border probBorder = new()
+                        {
+                            Child = probText,
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            VerticalAlignment = VerticalAlignment.Center,
+                            Margin = HUNDRED_MARGIN
+                        };
+                        canvas.Children.Add(probBorder);
+
+                        Thickness[] margins = { new(CARD_SIZE - 20, CARD_SIZE - 35, 0, 0), new(13, 5, 0, 0),
+                            new(CARD_SIZE - 20, 5, 0, 0), new(13, CARD_SIZE - 35, 0, 0) };
+                        for (int i = 0; i < 4; i++)
+                        {
+                            SolidColorBrush textColor = i == 0 ? new(Colors.Red)
+                                : new(Colors.LightBlue);
+                            TextBlock text = new()
+                            {
+                                FontSize = 25,
+                                Foreground = textColor
+                            };
+                            Border textBorder = new()
+                            {
+                                Child = text,
+                                HorizontalAlignment = HorizontalAlignment.Center,
+                                VerticalAlignment = VerticalAlignment.Top,
+                                Margin = margins[i]
+                            };
+                            numberContainer.Children.Add(textBorder);
+                        }
+                        canvas.Children.Add(numberContainer);
+                    }
+
+                    Grid.SetColumn(canvas, c);
+                    cardCanvases[r - 1].Add(canvas);
+                    row.Children.Add(canvas);
+                }
+            }
+        }
     }
 }

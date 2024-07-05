@@ -77,13 +77,13 @@
                 Padding="0, 0, 0, 0">
                 <Image Source="Assets/up-arrow.png" Width="45" Height="45"/>
             </Button>
-            <!--
+            
             <TextBlock
                 x:Name="DebugText" Grid.Column="1"
                 HorizontalAlignment="Center" FontSize="25">DEBUG</TextBlock>
             <Image x:Name="DebugImg" Grid.Column="2" HorizontalAlignment="Center"
                 Height="100" Width="100" Source="Assets/Square150x150Logo.scale-200.png"/>
-            -->
+            
         </Grid>
     </Grid>
 </Window>
