@@ -13,7 +13,8 @@ using Windows.Devices.Display;
 
 using Voltorb_Flip.Calculator;
 using Microsoft.UI;
-using Windows.ApplicationModel;
+using Voltorb_Flip.ML;
+using System.Collections;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -78,6 +79,10 @@ namespace Voltorb_Flip
                 CalibrateButton.IsEnabled = false;
                 CalibrateButton.Content = "Screen Capture Not Supported";
             }
+
+            // Generate Board training data
+            BoardGenerator gen = new();
+            gen.CreateTrainingData();
         }
 
         // Update onscreen board with internal game state values
