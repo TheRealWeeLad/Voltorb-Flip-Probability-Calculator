@@ -53,7 +53,11 @@ namespace Voltorb_Flip.ML
             // Set up board
             int[] board = new int[25]; // 5 x 5
             int[] pointNums = new int[20]; // 2 x 5 x 2
+            // Randomly block out some coordinates
+            int[] knownBoard = new int[25];
+            int numBlocked = rng.Next(25 - voltorbs);
 
+            // Set 2s, 3s, and Vs
             for (int i = 0; i < layout.Length; i++)
             {
                 for (int j = 0; j < layout[i]; j++)
@@ -68,12 +72,15 @@ namespace Voltorb_Flip.ML
                         pointNums[2 * row + 1]++;
                         pointNums[10 + 2 * col + 1]++;
                         board[5 * row + col] = 1; // 1 is Voltorb here
+                        // Don't put voltorbs on known board
+                        knownBoard[5 * row + col] = -1; // -1 is Unknown
                     }
                     else // 2 or 3
                     {
                         pointNums[2 * row] += 2 + i;
                         pointNums[10 + 2 * col] += 2 + i;
                         board[5 * row + col] = 2 + i;
+                        knownBoard[5 * row + col] = 2 + i;
                     }
                 }
             }
@@ -85,11 +92,27 @@ namespace Voltorb_Flip.ML
                 pointNums[10 + 2 * col]++;
             }
 
+            // Block out random coordinates
+            coordinates = new(_coordinates); // Reset coordinates
+            for (int i = 0; i < numBlocked; i++)
+            {
+                int idx = rng.Next(coordinates.Count);
+                (int row, int col) = coordinates[idx];
+                coordinates.RemoveAt(idx);
+
+                // If this square is Voltorb, it's already unkown, so skip over it
+                if (board[5 * row + col] == 1) { i++; continue; }
+
+                // -1 here means unknown
+                knownBoard[5 * row + col] = -1;
+            }
+
             return new Board()
             {
                 Level = level,
                 VoltorbNumbers = pointNums,
-                BoardState = board
+                KnownBoardState = knownBoard,
+                FullBoardState = board
             };
         }
     
