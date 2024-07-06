@@ -1,8 +1,10 @@
 ﻿using Microsoft.ML.Data;
+using System;
+using System.Linq;
 
 namespace Voltorb_Flip.ML
 {
-    public class Board
+    public class Board : IEquatable<Board>
     {
         // Which level of Voltorb Flip we are at
         [LoadColumn(0)]
@@ -23,5 +25,16 @@ namespace Voltorb_Flip.ML
         [VectorType(5, 5)]
         [ColumnName("Label")]
         public int[] FullBoardState { get; set; }
+
+
+        public bool Equals(Board other)
+        {
+            if (Level != other.Level) return false;
+            if (!VoltorbNumbers.SequenceEqual(other.VoltorbNumbers)) return false;
+            if (!KnownBoardState.SequenceEqual(other.KnownBoardState)) return false;
+            if (!FullBoardState.SequenceEqual(other.FullBoardState)) return false;
+
+            return true;
+        }
     }
 }
