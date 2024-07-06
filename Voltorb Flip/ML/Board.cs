@@ -13,9 +13,15 @@ namespace Voltorb_Flip.ML
         [VectorType(2, 5, 2)]
         public int[] VoltorbNumbers { get; set; }
 
-        // Stores known point values/voltorbs { 0: 1, 1: Voltorb, 2: 2, 3: 3 }
+        // Stores point values/voltorbs { 0: 1, 1: Voltorb, 2: 2, 3: 3, -1: unknown }
         [LoadColumn(21, 45)]
         [VectorType(5, 5)]
-        public int[] BoardState { get; set; }
+        public int[] KnownBoardState { get; set; }
+
+        // Stores full board
+        [LoadColumn(46, 70)]
+        [VectorType(5, 5)]
+        [ColumnName("Label")]
+        public int[] FullBoardState { get; set; }
     }
 }
