@@ -99,11 +99,12 @@ namespace Voltorb_Flip.ML
         /// </summary>
         public void CreateTrainingData()
         {
-            Board[] trainingData = new Board[NUM_BOARDS];
-            for (int i = 0; i < NUM_BOARDS; i++)
-                trainingData[i] = Generate();
-
-            // TODO: REMOVE DUPLICATES
+            List<Board> trainingData = new();
+            while (trainingData.Count < NUM_BOARDS)
+            {
+                Board b = Generate();
+                if (!trainingData.Contains(b)) trainingData.Add(b); // Uses Board.Equals for comparison
+            }
             
             // Initialize ML data
             MLContext mlContext = new();
