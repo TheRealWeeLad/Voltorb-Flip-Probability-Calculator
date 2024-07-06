@@ -80,9 +80,10 @@ namespace Voltorb_Flip
                 CalibrateButton.Content = "Screen Capture Not Supported";
             }
 
-            // Generate Board training data
-            BoardGenerator gen = new();
-            gen.CreateTrainingData();
+            // TESTING
+            new BoardGenerator().CreateTrainingData();
+            Model.Instance.Train();
+            DebugLog(Model.Instance.Evaluate());
         }
 
         // Update onscreen board with internal game state values
@@ -507,7 +508,7 @@ namespace Voltorb_Flip
         }
         public void DebugBoard(Board boardObj)
         {
-            int[] board = boardObj.BoardState; // 25 items
+            int[] board = boardObj.KnownBoardState; // 25 items
 
             // Reset list of card images
             if (cardCanvases.Count > 0) cardCanvases.Clear();
@@ -531,11 +532,13 @@ namespace Voltorb_Flip
                     BitmapImage sourceImage;
                     if (c < 5 && r < 6)
                     {
-                        if (board[idx] == 1)
+                        if (board[idx] == 1) // VOLTORB
                             sourceImage = VOLTORB_IMAGE;
-                        else if (board[idx] == 0)
+                        else if (board[idx] == 0) // 1
                             sourceImage = new(new Uri($"ms-appx:///Assets/flipped-1-highres.png"));
-                        else
+                        else if (board[idx] == -1) // UNKNOWN
+                            sourceImage = HIDDEN_IMAGE;
+                        else // 2 OR 3
                             sourceImage = new(new Uri($"ms-appx:///Assets/flipped-{board[idx]}-highres.png"));
                     }
                     else

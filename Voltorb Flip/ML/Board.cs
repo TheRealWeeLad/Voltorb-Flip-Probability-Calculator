@@ -21,6 +21,7 @@ namespace Voltorb_Flip.ML
         public int[] KnownBoardState { get; set; }
 
         // Stores full board
+        // TODO: LABEL COLUMN MUST BE SINGLE - NO VECTOR :((
         [LoadColumn(46, 70)]
         [VectorType(5, 5)]
         [ColumnName("Label")]
