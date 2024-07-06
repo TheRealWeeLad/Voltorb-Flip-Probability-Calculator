@@ -3,6 +3,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# ML training data and parameters
+Voltorb\ Flip/ML/*.csv
+
 # User-specific files
 *.rsuser
 *.suo
