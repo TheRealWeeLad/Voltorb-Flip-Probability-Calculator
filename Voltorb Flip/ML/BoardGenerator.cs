@@ -134,7 +134,7 @@ namespace Voltorb_Flip.ML
             IDataView data = mlContext.Data.LoadFromEnumerable(trainingData);
 
             // Write to file
-            string path = @"D:\\Other Stuff\\Voltorb Flip\\Voltorb Flip\\ML\\training_data.csv";
+            string path = "training_data.csv";
             File.WriteAllText(path, "Level(1), Voltorb Numbers(20), Board State(25)\r\n");
             using (FileStream stream = new(path, FileMode.Append))
                 mlContext.Data.SaveAsText(data, stream);
