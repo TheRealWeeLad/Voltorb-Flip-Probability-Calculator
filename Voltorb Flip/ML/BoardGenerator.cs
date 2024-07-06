@@ -135,9 +135,8 @@ namespace Voltorb_Flip.ML
 
             // Write to file
             string path = "training_data.csv";
-            File.WriteAllText(path, "Level(1), Voltorb Numbers(20), Board State(25)\r\n");
-            using (FileStream stream = new(path, FileMode.Append))
-                mlContext.Data.SaveAsText(data, stream);
+            using (FileStream stream = new(path, FileMode.Create))
+                mlContext.Data.SaveAsText(data, stream, headerRow: false, schema: false);
         }
     }
 }
