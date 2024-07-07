@@ -136,7 +136,7 @@ namespace Voltorb_Flip.ML
             // Write to file
             string path = "training_data.csv";
             using (FileStream stream = new(path, FileMode.Create))
-                mlContext.Data.SaveAsText(data, stream, headerRow: false, schema: false);
+                mlContext.Data.SaveAsText(data, stream, headerRow: false, schema: false, forceDense: true);
         }
     }
 }
