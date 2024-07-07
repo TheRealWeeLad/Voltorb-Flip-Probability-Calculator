@@ -10,7 +10,7 @@ namespace Voltorb_Flip.ML
     class BoardGenerator
     {
         // Number of boards for training
-        const int NUM_BOARDS = 10000;
+        const int NUM_BOARDS = 50000;
         readonly Random rng;
 
         // List of Coordinates
@@ -115,7 +115,7 @@ namespace Voltorb_Flip.ML
                 FullBoardState = board
             };
         }
-    
+
         /// <summary>
         /// Generate a bunch of <see cref="Board"/>s and write their data to a
         /// training file.
