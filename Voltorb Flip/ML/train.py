@@ -3,17 +3,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # hyperparameters
-learning_rate = 0.01
+learning_rate = 1e-3
 epochs = 10000
 eval_interval = 1000
 eval_iters = 200
-batch_size = 8
+batch_size = 64
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # Training data columns: 0-level, 1:20-voltorb numbers, 21:45-known board state
+# Add 1 to input for board index to predict
 # What we want to predict: 46:70-full board state
-input_size = 46
-hidden_size = 6000
-output_size = 25
+input_sizes = [1, 20, 25, 1]
+hidden_size = 128
+output_size = 4
 
 # Read training data
 with open('training_data.csv', 'r') as f:
@@ -35,7 +36,8 @@ full = full_data[:, 46:71]
 level = (level - level.min()) / (level.max() - level.min())
 volt = (volt - volt.min()) / (volt.max() - volt.min())
 known = (known - known.min()) / (known.max() - known.min())
-full = (full - full.min()) / (full.max() - full.min())
+# Don't normalize predictions
+# full = (full - full.min()) / (full.max() - full.min())
 full_data = torch.cat((level, volt, known, full), dim=-1)
 
 # Split data into train and test
@@ -47,17 +49,41 @@ test_data = full_data[n:]
 class Model(nn.Module):
     def __init__(self):
         super().__init__()
-        self.l1 = nn.Linear(input_size, hidden_size)
-        self.l2 = nn.Linear(hidden_size, output_size)
-        self.softmax = nn.Softmax(dim=1)
+
+        # Level interacts with Voltorb numbers
+        self.level_layer = nn.Linear(input_sizes[0], input_sizes[1])
+        # Voltorb nums interact with known board state
+        self.voltorb_layer = nn.Linear(input_sizes[1], input_sizes[2])
+        # Known board state interacts in mysterious ways :O
+        self.known_layer = nn.Linear(input_sizes[2], hidden_size)
+
+        self.hidden_layer = nn.Linear(hidden_size, hidden_size)
+        # Output index interacts with final layer to output final predictions
+        self.output_layer = nn.Linear(hidden_size + input_sizes[3], output_size)
+        
+        self.softmax = nn.Softmax(dim=-1)
     
     def forward(self, x, y):
-        # TODO: make better :)
-        x = self.l1(x)
-        x = self.l2(x)
+        level = x[:, 0:1]
+        voltorbs = x[:, 1:21]
+        known = x[:, 21:46]
+        index = x[:, 46:47]
+        # Level
+        x = self.level_layer(level) * voltorbs
+        # Voltorb nums
+        x = self.voltorb_layer(x) * known
+        # Known board state
+        x = self.known_layer(x)
+        # Hidden layer
+        x = self.hidden_layer(x)
+        # Output layer
+        x = self.output_layer(torch.cat((x, index), dim=-1))
 
         # Find loss
-        loss = F.l1_loss(x, y)
+        loss = F.cross_entropy(x, y.long().view(-1))
+        # Convert to probabilities
+        x = self.softmax(x)
+
         return x, loss
 
 model = Model()
@@ -70,8 +96,8 @@ def get_batch(split):
     data = training_data if split == 'train' else test_data
     random_nums = torch.randint(len(data), (batch_size,)) 
     batch = data[random_nums] # (batch_size, 71)
-    x = batch[:, :input_size] # (batch_size, 46)
-    y = batch[:, input_size:] # (batch_size, 25)
+    x = batch[:, :46] # (batch_size, 46)
+    y = batch[:, 46:] # (batch_size, 25)
     return x, y
 
 # Evaluate loss
@@ -83,7 +109,15 @@ def estimate_loss():
         losses = torch.zeros(eval_iters)
         for k in range(eval_iters):
             x, y = get_batch(split)
-            _, loss = m(x, y)
+            index = torch.randint(25, (x.shape[0],1), device=device)
+            # Add index to input
+            new_x = torch.cat((x, index), dim=-1)
+            # Only take the index we want to predict
+            idx = index[0, 0]
+            new_y = y[:, idx:idx+1]
+
+            # Forward pass
+            _, loss = m(new_x, new_y)
             losses[k] = loss.item()
         out[split] = losses.mean()
     model.train()
@@ -100,8 +134,39 @@ for epoch in range(epochs):
     # Get random batch of data
     x, y = get_batch('train')
 
-    # Evaluate loss
-    _, loss = m(x, y)
+    # Perform forward pass for random index on output board
+    index = torch.randint(25, (x.shape[0],1), device=device)
+    # Add index to input
+    new_x = torch.cat((x, index), dim=-1)
+    # Only take the index we want to predict
+    idx = index[0, 0]
+    new_y = y[:, idx:idx+1]
+
+    # Forward pass
+    _, loss = m(new_x, new_y)
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
+
+test = full_data[12].view(1, -1)
+test_inp = test[:, :46]
+test_out = test[:, 46:]
+
+test_result = torch.tensor([[0]], device=device)
+test_loss = torch.zeros(1, device=device)
+for i in range(25):
+    index = torch.tensor([[i]], device=device)
+    new_test = torch.cat((test_inp, index), dim=-1)
+    new_test_out = test_out[:, i:i+1]
+
+    # Forward pass
+    result, loss = m(new_test, new_test_out)
+    print(result)
+    res = result.argmax(dim=-1)
+    test_result = torch.cat((test_result, res.view(-1, 1)), dim=-1)
+    test_loss += loss
+test_loss /= 25
+    
+print(f'test full board: {test_out}')
+print(f'test result: {test_result}')
+print(f'test loss: {test_loss.item()}')
