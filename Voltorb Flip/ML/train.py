@@ -13,7 +13,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # Add 1 to input for board index to predict
 # What we want to predict: 46:70-full board state
 input_sizes = [1, 20, 25, 1]
-hidden_size = 128
+hidden_size = 512
 output_size = 4
 
 # Read training data
@@ -51,13 +51,19 @@ class Model(nn.Module):
         super().__init__()
 
         # Level interacts with Voltorb numbers
-        self.level_layer = nn.Linear(input_sizes[0], input_sizes[1])
+        self.level_layers = nn.Sequential(
+            nn.Linear(input_sizes[0], 32),
+        )
         # Voltorb nums interact with known board state
-        self.voltorb_layer = nn.Linear(input_sizes[1], input_sizes[2])
+        self.voltorb_layers = nn.Sequential(
+            nn.Linear(input_sizes[1], 64),
+        )
         # Known board state interacts in mysterious ways :O
-        self.known_layer = nn.Linear(input_sizes[2], hidden_size)
+        self.known_layers = nn.Sequential(
+            nn.Linear(input_sizes[2], 128),
+        )
 
-        self.hidden_layer = nn.Linear(hidden_size, hidden_size)
+        self.hidden_layer = nn.Linear(32 + 64 + 128, hidden_size)
         # Output index interacts with final layer to output final predictions
         self.output_layer = nn.Linear(hidden_size + input_sizes[3], output_size)
         
@@ -69,13 +75,13 @@ class Model(nn.Module):
         known = x[:, 21:46]
         index = x[:, 46:47]
         # Level
-        x = self.level_layer(level) * voltorbs
+        level = self.level_layers(level)
         # Voltorb nums
-        x = self.voltorb_layer(x) * known
+        voltorbs = self.voltorb_layers(voltorbs)
         # Known board state
-        x = self.known_layer(x)
+        known = self.known_layers(known)
         # Hidden layer
-        x = self.hidden_layer(x)
+        x = self.hidden_layer(torch.cat((level, voltorbs, known), dim=-1))
         # Output layer
         x = self.output_layer(torch.cat((x, index), dim=-1))
 
