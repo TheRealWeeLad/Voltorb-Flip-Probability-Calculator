@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # hyperparameters
-learning_rate = 1e-3
+learning_rate = 5e-3
 epochs = 10000
 eval_interval = 1000
 eval_iters = 200
@@ -13,7 +13,9 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # Add 1 to input for board index to predict
 # What we want to predict: 46:70-full board state
 input_sizes = [1, 20, 25, 1]
-hidden_size = 512
+voltorb_size = 25
+conv_size = 1000
+hidden_size = 3000
 output_size = 4
 
 # Read training data
@@ -34,7 +36,8 @@ volt = full_data[:, 1:21]
 known = full_data[:, 21:46]
 full = full_data[:, 46:71]
 level = (level - level.min()) / (level.max() - level.min())
-volt = (volt - volt.min()) / (volt.max() - volt.min())
+# Don't normalize voltorbs for embedding
+# volt = (volt - volt.min()) / (volt.max() - volt.min())
 known = (known - known.min()) / (known.max() - known.min())
 # Don't normalize predictions
 # full = (full - full.min()) / (full.max() - full.min())
@@ -50,41 +53,44 @@ class Model(nn.Module):
     def __init__(self):
         super().__init__()
 
-        # Level interacts with Voltorb numbers
-        self.level_layers = nn.Sequential(
-            nn.Linear(input_sizes[0], 32),
-        )
-        # Voltorb nums interact with known board state
+        # 15 is highest voltorb number ever recorded in human history (probably)
+        self.voltorb_embedding = nn.Embedding(25, voltorb_size)
+        self.voltorb_position_embedding = nn.Embedding(input_sizes[1], voltorb_size)
         self.voltorb_layers = nn.Sequential(
-            nn.Linear(input_sizes[1], 64),
+            nn.Linear(voltorb_size, conv_size),
         )
-        # Known board state interacts in mysterious ways :O
         self.known_layers = nn.Sequential(
-            nn.Linear(input_sizes[2], 128),
+            nn.Linear(input_sizes[2], conv_size),
+            # nn.Conv2d(input_sizes[2], conv_size, (1, 1)),
+            # nn.ReLU(),
+            # nn.MaxPool2d((1, 1), stride=(1, 1))
         )
 
-        self.hidden_layer = nn.Linear(32 + 64 + 128, hidden_size)
-        # Output index interacts with final layer to output final predictions
-        self.output_layer = nn.Linear(hidden_size + input_sizes[3], output_size)
+        self.hidden_layer = nn.Linear(input_sizes[1], hidden_size)
+        self.output_layer = nn.Linear(hidden_size + input_sizes[0] + input_sizes[3], output_size)
         
         self.softmax = nn.Softmax(dim=-1)
+        self.flatten = nn.Flatten()
     
     def forward(self, x, y):
         level = x[:, 0:1]
         voltorbs = x[:, 1:21]
-        known = x[:, 21:46]
+        known = x[:, 21:46]#.view(-1, 25, 1, 1)
         index = x[:, 46:47]
-        # Level
-        level = self.level_layers(level)
         # Voltorb nums
-        voltorbs = self.voltorb_layers(voltorbs)
+        voltorb_embd = self.voltorb_embedding(voltorbs.long())
+        position_embd = self.voltorb_position_embedding(torch.arange(input_sizes[1], device=device))
+        voltorbs = self.voltorb_layers(voltorb_embd + position_embd)
         # Known board state
-        known = self.known_layers(known)
+        known = self.known_layers(known).view(-1, conv_size, 1)
+        # known = self.flatten(known).view(-1, conv_size, 1)
+        # Voltorbs interacts with board
+        known = torch.einsum('ijk,ikl->ijl', voltorbs, known).view(-1, input_sizes[1])
         # Hidden layer
-        x = self.hidden_layer(torch.cat((level, voltorbs, known), dim=-1))
+        x = self.hidden_layer(known)
         # Output layer
-        x = self.output_layer(torch.cat((x, index), dim=-1))
-
+        x = self.output_layer(torch.cat((x, index, level), dim=-1))
+        
         # Find loss
         loss = F.cross_entropy(x, y.long().view(-1))
         # Convert to probabilities
@@ -112,7 +118,7 @@ def estimate_loss():
     out = {}
     model.eval()
     for split in ['train', 'val']:
-        losses = torch.zeros(eval_iters)
+        losses = torch.zeros(eval_iters, device=device)
         for k in range(eval_iters):
             x, y = get_batch(split)
             index = torch.randint(25, (x.shape[0],1), device=device)
@@ -141,11 +147,11 @@ for epoch in range(epochs):
     x, y = get_batch('train')
 
     # Perform forward pass for random index on output board
-    index = torch.randint(25, (x.shape[0],1), device=device)
+    index = torch.randint(25, (x.shape[0],1), device=device) / 25.
     # Add index to input
     new_x = torch.cat((x, index), dim=-1)
     # Only take the index we want to predict
-    idx = index[0, 0]
+    idx = int(index[0, 0] * 25)
     new_y = y[:, idx:idx+1]
 
     # Forward pass
