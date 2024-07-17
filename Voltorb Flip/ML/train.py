@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pandas as pd
 
 # hyperparameters
 learning_rate = 5e-3
@@ -19,29 +20,27 @@ hidden_size = 3000
 output_size = 4
 
 # Read training data
-with open('training_data.csv', 'r') as f:
-    data_text = f.read()
+df = pd.read_csv('training_data.csv', sep='\t')
 
-# Tokenize data
-data_text = data_text.split('\n')
-# final row is empty so we remove it
-full_data = [list(map(lambda e: 0 if e == '' else float(e), data_row.split('\t'))) for data_row in data_text][:-1]
+def normalize(data : pd.DataFrame, *columns : str):
+    # Find absolute max and min
+    maximum = max([data[columns[i]].max() for i in range(len(columns))])
+    minimum = min([data[columns[i]].min() for i in range(len(columns))])
+
+    # MinMax normalize all columns
+    for i in range(len(columns)):
+        data[columns[i]] = (data[columns[i]] - minimum) / (maximum - minimum)
+
+# MinMax normalization on each column of data separately
+normalize(df, 'Level')
+# Don't normalize voltorbs for embedding
+# normalize(df, *df.columns[1:21])
+normalize(df, *df.columns[21:46])
+# Don't normalize predictions
+# normalize(df, *df.columns[46:71])
 
 # Convert data to tensors
-full_data = torch.tensor(full_data, dtype=torch.float32, device=device)
-
-# MinMax normalization on each column of data
-level = full_data[:, 0:1]
-volt = full_data[:, 1:21]
-known = full_data[:, 21:46]
-full = full_data[:, 46:71]
-level = (level - level.min()) / (level.max() - level.min())
-# Don't normalize voltorbs for embedding
-# volt = (volt - volt.min()) / (volt.max() - volt.min())
-known = (known - known.min()) / (known.max() - known.min())
-# Don't normalize predictions
-# full = (full - full.min()) / (full.max() - full.min())
-full_data = torch.cat((level, volt, known, full), dim=-1)
+full_data = torch.tensor(df.to_numpy(), dtype=torch.float32, device=device)
 
 # Split data into train and test
 n = int(0.9 * len(full_data))
